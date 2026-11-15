@@ -150,7 +150,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 
 - Datasets abertos do Roboflow Universe, cada um com autor, link e licença em `dados/README.md`.
 - Imagens de calçadas de São Paulo do [Mapillary](https://www.mapillary.com), licença CC BY-SA 4.0, capturadas a pé por colaboradores e já com rostos e placas borrados pela plataforma. Autor e link de cada imagem em `dados/creditos_mapillary.csv`.
-- Por causa da licença CC BY-SA das imagens do Mapillary, o dataset deste projeto é distribuído sob CC BY-SA 4.0.
+- O dataset é uma coleção: as anotações e o código do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs.
 
 ## Limitações

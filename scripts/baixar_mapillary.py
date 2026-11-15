@@ -4,7 +4,8 @@ O que o script faz:
   1. Busca as imagens de cada bairro na API do Mapillary, em blocos pequenos
      (a API recusa caixas grandes e às vezes estoura o tempo em áreas densas).
   2. Agrupa por sequência e calcula a velocidade de quem capturou: fica só com
-     sequências feitas A PÉ (0,3 a 2,5 m/s), que têm o ponto de vista do pedestre.
+     sequências feitas A PÉ (mediana de 0,5 a 2,2 m/s e pico até 3,5 m/s), que têm
+     o ponto de vista do pedestre. O pico barra carros parados no trânsito.
   3. Pega poucas imagens por sequência, espaçadas, para evitar fotos quase iguais.
   4. Separa sequências inteiras para o TESTE (nenhuma sequência aparece em treino e teste).
   5. Baixa as imagens como  sp_<bairro>_<id>.jpg  e grava  creditos.csv  com autor,
@@ -114,18 +115,32 @@ def instante_ms(valor) -> int | None:
 
 # ----------------------------------------------------------------------------- seleção
 
-def velocidade_mediana(imagens: list[dict]) -> float | None:
-    """Velocidade mediana (m/s) de uma sequência, a partir de posição e horário das imagens."""
+def perfil_velocidade(imagens: list[dict]) -> tuple[float, float, float] | None:
+    """(mediana, pico, fração parada) da velocidade de uma sequência, em m/s.
+
+    pico = percentil 90; fração parada = trechos abaixo de 0,3 m/s.
+    Só a mediana não basta: um carro no trânsito tem mediana de pedestre, mas ou
+    arranca em algum momento (o pico denuncia) ou passa muito tempo parado (a
+    fração parada denuncia). Precisa de pelo menos 3 trechos.
+    """
     pontos = sorted((i for i in imagens if i.get("_t") is not None and i.get("_pos")), key=lambda i: i["_t"])
     velocidades = []
     for a, b in zip(pontos, pontos[1:]):
         dt = (b["_t"] - a["_t"]) / 1000
         if 0 < dt <= 30:  # ignora pausas longas entre capturas
             velocidades.append(distancia_m(a["_pos"], b["_pos"]) / dt)
-    if not velocidades:
+    if len(velocidades) < 3:
         return None
+    parado = sum(v < 0.3 for v in velocidades) / len(velocidades)
     velocidades.sort()
-    return velocidades[len(velocidades) // 2]
+    mediana = velocidades[len(velocidades) // 2]
+    pico = velocidades[min(len(velocidades) - 1, int(0.9 * len(velocidades)))]
+    return mediana, pico, parado
+
+
+def velocidade_mediana(imagens: list[dict]) -> float | None:
+    perfil = perfil_velocidade(imagens)
+    return perfil[0] if perfil else None
 
 
 def espacar(imagens: list[dict], distancia_minima: float, maximo: int) -> list[dict]:
@@ -145,6 +160,8 @@ def selecionar(
     fracao_teste: float,
     vel_min: float,
     vel_max: float,
+    vel_pico: float,
+    max_parado: float,
     qualquer_velocidade: bool,
     distancia_minima: float,
     max_por_sequencia: int,
@@ -158,12 +175,12 @@ def selecionar(
     resumo = {"sequencias": len(por_sequencia), "a_pe": 0, "outras": 0, "sem_velocidade": 0}
     candidatas = []
     for seq, lista in por_sequencia.items():
-        v = velocidade_mediana(lista)
-        if v is None:
+        perfil = perfil_velocidade(lista)
+        if perfil is None:
             resumo["sem_velocidade"] += 1
             if not qualquer_velocidade:
                 continue
-        elif vel_min <= v <= vel_max:
+        elif vel_min <= perfil[0] <= vel_max and perfil[1] <= vel_pico and perfil[2] <= max_parado:
             resumo["a_pe"] += 1
         else:
             resumo["outras"] += 1
@@ -283,11 +300,13 @@ def main() -> None:
     p.add_argument("--fracao-teste", type=float, default=0.15, help="fração reservada ao teste, por sequência")
     p.add_argument("--saida", default="mapillary_sp", help="pasta de saída")
     p.add_argument("--token", default=os.getenv("MAPILLARY_TOKEN", ""), help="Client Token (ou variável MAPILLARY_TOKEN)")
-    p.add_argument("--vel-min", type=float, default=0.3, help="velocidade mínima de quem captura (m/s)")
-    p.add_argument("--vel-max", type=float, default=2.5, help="velocidade máxima: acima disso não é a pé (m/s)")
+    p.add_argument("--vel-min", type=float, default=0.5, help="velocidade mediana mínima de quem captura (m/s)")
+    p.add_argument("--vel-max", type=float, default=2.2, help="velocidade mediana máxima de quem anda a pé (m/s)")
+    p.add_argument("--vel-pico", type=float, default=3.5, help="pico (percentil 90) máximo; acima disso é veículo (m/s)")
+    p.add_argument("--max-parado", type=float, default=0.3, help="fração máxima de trechos parados (carro no trânsito)")
     p.add_argument("--qualquer-velocidade", action="store_true", help="aceita sequências de carro e bicicleta também")
     p.add_argument("--distancia-minima", type=float, default=8.0, help="metros entre imagens da mesma sequência")
-    p.add_argument("--max-por-sequencia", type=int, default=12)
+    p.add_argument("--max-por-sequencia", type=int, default=8, help="máximo de imagens por sequência (mais variedade)")
     p.add_argument("--desde", type=int, default=2018, help="ano mínimo de captura")
     p.add_argument("--semente", type=int, default=42)
     args = p.parse_args()
@@ -329,8 +348,8 @@ def main() -> None:
                     dados.extend(buscar_bloco(sessao, args.token, bloco, campos))
             imagens = [i for i in preparar(dados, args.desde) if i.get("sequence") not in sequencias_usadas]
             escolhidas, resumo = selecionar(
-                imagens, args.por_regiao, args.fracao_teste, args.vel_min, args.vel_max,
-                args.qualquer_velocidade, args.distancia_minima, args.max_por_sequencia, args.semente,
+                imagens, args.por_regiao, args.fracao_teste, args.vel_min, args.vel_max, args.vel_pico,
+                args.max_parado, args.qualquer_velocidade, args.distancia_minima, args.max_por_sequencia, args.semente,
             )
             print(f"  {len(imagens)} imagens válidas em {resumo['sequencias']} sequências "
                   f"({resumo['a_pe']} a pé, {resumo['outras']} de veículo, {resumo['sem_velocidade']} sem dado de velocidade)")

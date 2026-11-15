@@ -16,7 +16,7 @@ Para rodar os scripts localmente, baixe a versão no formato YOLO (`yolov8`) par
 
 ## Imagens de São Paulo (Mapillary)
 
-[N] imagens de calçadas de [bairros], baixadas com `scripts/baixar_mapillary.py`: só sequências capturadas a pé (0,3 a 2,5 m/s), no máximo 12 imagens por sequência, com pelo menos 8 m entre elas. Nomes no padrão `sp_<bairro>_<id>.jpg`.
+[N] imagens de calçadas de [bairros], baixadas com `scripts/baixar_mapillary.py`: só sequências capturadas a pé (velocidade mediana de 0,5 a 2,2 m/s, pico de até 3,5 m/s e no máximo 30% do tempo parado, o que barra carros no trânsito), no máximo 8 imagens por sequência, com pelo menos 8 m entre elas. Nomes no padrão `sp_<bairro>_<id>.jpg`.
 
 - **Licença:** as imagens continuam sob CC BY-SA 4.0 e entram no dataset sem alteração (sem Resize nem aumento de dados no Roboflow). O projeto no Roboflow está em CC BY 4.0, que vale para as anotações do grupo.
 - **Créditos:** `creditos_mapillary.csv` (cópia do `creditos.csv` gerado pelo script), com autor, data e link de cada imagem.

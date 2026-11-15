@@ -36,6 +36,19 @@ As imagens de calçadas de São Paulo vêm do Mapillary, filtradas para sequênc
    ```
 
    O padrão é 200 imagens por bairro. Os quatro bairros já têm caixas pré-definidas em volta de pontos conhecidos (estação Itaquera, estação Jabaquara, Av. Paulista e Praça da Sé); para outro bairro, use `--regiao "nome=lon_min,lat_min,lon_max,lat_max"`.
+   **Se vierem fotos de carro** (comum em São Paulo, onde a maior parte do Mapillary foi gravada de carro), escolham as sequências a dedo:
+
+   ```cmd
+   py scripts\baixar_mapillary.py --regiao se --listar
+   ```
+
+   O script lista as sequências mais lentas do bairro, com um link para cada uma. Abram os links e fiquem com as que mostram a calçada do ponto de vista de quem anda. Para pegar a chave da sequência, cliquem nos três pontos (...) no canto inferior direito do visualizador e abram *Advanced*. Depois:
+
+   ```cmd
+   py scripts\baixar_mapillary.py --sequencia "se=CHAVE1" --sequencia "se=CHAVE2" --sequencia "bras=CHAVE3:teste"
+   ```
+
+   São até 25 imagens por sequência, com 8 m entre elas. O sufixo `:teste` manda a sequência inteira para o teste; sem ele, o script separa cerca de 15% sozinho.
 3. **Revisar.** Abram as pastas `mapillary_sp/treino` e `mapillary_sp/teste` e apaguem as imagens que não mostram calçada (só rua, interior de ônibus, foto escura ou tremida). Contem com descartar uma parte. Se sobrar pouco, rodem o mesmo comando de novo: ele ignora as sequências já baixadas e traz imagens novas (`--por-regiao 100` = mais 100 por bairro).
 4. **Créditos.** Copiem `mapillary_sp/creditos.csv` para `dados/creditos_mapillary.csv` no repositório. Linhas de imagens descartadas podem ficar: sobra crédito, não falta.
 5. **Licença.** As imagens do Mapillary são CC BY-SA 4.0 e entram no dataset sem alteração (sem Resize nem aumento de dados no Roboflow), então mantêm essa licença. O projeto no Roboflow fica em CC BY 4.0, que vale para as anotações. Escrevam isso na descrição do projeto no Roboflow, no README e no PDF.

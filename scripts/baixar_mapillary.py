@@ -16,7 +16,21 @@ Token: crie uma conta em mapillary.com, registre um app em Developers e copie o
 porque o caractere | tem significado especial:
   set "MAPILLARY_TOKEN=MLY|1234|abcd"
 
+Dois modos:
+  --regiao      busca automática por bairro, filtrando sequências a pé pela velocidade.
+                Em São Paulo a maior parte do Mapillary é de carro: confira as fotos.
+  --sequencia   sequências escolhidas a dedo no mapa do Mapillary (mais confiável).
+                No mapa (mapillary.com/app), abra uma foto de alguém andando na calçada,
+                clique nos três pontos (...) no canto inferior direito do visualizador,
+                em Advanced, e copie a chave da sequência (sequence key).
+
 Exemplos:
+  # sequências escolhidas a dedo (bairro=chave; ":teste" manda a sequência inteira ao teste)
+  py scripts\\baixar_mapillary.py --sequencia "bras=CHAVE1" --sequencia "bras=CHAVE2:teste"
+
+  # lista as sequências mais lentas do bairro, com link para conferir no navegador
+  py scripts\\baixar_mapillary.py --regiao se --listar
+
   # bairros pré-definidos (confiram as caixas no mapa antes)
   py scripts\\baixar_mapillary.py --regiao itaquera --regiao jabaquara --regiao paulista --regiao se
 
@@ -37,8 +51,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 API = "https://graph.mapillary.com/images"
+API_IDS = "https://graph.mapillary.com/image_ids"
+API_IMAGEM = "https://graph.mapillary.com/{}"
 CAMPOS_COMPLETOS = "id,thumb_2048_url,captured_at,sequence,geometry,camera_type,creator"
 CAMPOS_BASICOS = "id,thumb_2048_url,captured_at,sequence,geometry"
+CAMPOS_IMAGEM = "id,thumb_2048_url,captured_at,sequence,geometry,camera_type,creator"
+CAMPOS_IMAGEM_BASICOS = "id,thumb_2048_url,captured_at,sequence,geometry"
 LICENCA = "CC BY-SA 4.0"
 AREA_MAXIMA = 0.01   # graus quadrados aceitos pela API em uma caixa
 LIMITE_POR_PEDIDO = 2000
@@ -198,25 +216,36 @@ def selecionar(
             break
         escolhidas.extend(amostra[: quantidade - len(escolhidas)])
 
-    # sequências inteiras vão para o teste até cobrir a fração pedida, sem passar muito dela
+    marcar_teste(escolhidas, fracao_teste)
+    return escolhidas, resumo
+
+
+def marcar_teste(escolhidas: list[dict], fracao_teste: float, forcadas: set | None = None,
+                 anteriores: dict | None = None) -> None:
+    """Põe '_conjunto' em cada imagem: sequências inteiras vão para o teste até cobrir a fração.
+
+    forcadas: sequências que o usuário mandou para o teste; anteriores: conjunto já usado
+    por uma sequência em rodadas passadas (mantido, para nunca dividir uma sequência).
+    """
+    forcadas, anteriores = forcadas or set(), anteriores or {}
     tamanhos: dict = {}
     for img in escolhidas:
         tamanhos[img.get("sequence")] = tamanhos.get(img.get("sequence"), 0) + 1
-    meta_teste = max(1, round(len(escolhidas) * fracao_teste))
-    no_teste: set = set()
-    contagem = 0
-    if len(tamanhos) > 1:
-        for seq, n in tamanhos.items():
+    no_teste = {s for s in tamanhos if s in forcadas or anteriores.get(s) == "teste"}
+    livres = {s: n for s, n in tamanhos.items() if s not in no_teste and s not in anteriores}
+    if not forcadas and len(livres) > 1:
+        meta_teste = max(1, round(sum(livres.values()) * fracao_teste))
+        contagem = 0
+        for seq, n in livres.items():
             if contagem >= meta_teste:
                 break
             if contagem + n <= meta_teste * 1.5:
                 no_teste.add(seq)
                 contagem += n
-        if not no_teste:  # todas as sequências são grandes: vai a menor
-            no_teste.add(min(tamanhos, key=tamanhos.get))
+        if not contagem:  # todas as sequências são grandes: vai a menor
+            no_teste.add(min(livres, key=livres.get))
     for img in escolhidas:
         img["_conjunto"] = "teste" if img.get("sequence") in no_teste else "treino"
-    return escolhidas, resumo
 
 
 # ----------------------------------------------------------------------------- API
@@ -284,6 +313,33 @@ def preparar(dados: list[dict], ano_minimo: int) -> list[dict]:
     return imagens
 
 
+def ids_da_sequencia(sessao, token: str, sequencia: str) -> list[str]:
+    """IDs das imagens de uma sequência (endpoint image_ids da API)."""
+    r = sessao.get(API_IDS, params={"access_token": token, "sequence_id": sequencia}, timeout=60)
+    if r.status_code in (401, 403):
+        raise SystemExit("Token recusado pela API do Mapillary. Confira o MAPILLARY_TOKEN.")
+    if r.status_code != 200:
+        print(f"  aviso: não consegui listar a sequência {sequencia} (HTTP {r.status_code}). Confira o ID.")
+        return []
+    return [str(d["id"]) for d in r.json().get("data", []) if d.get("id")]
+
+
+def detalhes_da_imagem(sessao, token: str, image_id: str, campos: str) -> dict | None:
+    """Campos de uma imagem; levanta CampoInvalido se a API recusar algum campo."""
+    for tentativa in range(3):
+        try:
+            r = sessao.get(API_IMAGEM.format(image_id), params={"access_token": token, "fields": campos}, timeout=60)
+        except Exception:
+            time.sleep(2 * (tentativa + 1))
+            continue
+        if r.status_code == 200:
+            return r.json()
+        if r.status_code == 400 and "field" in r.text.lower():
+            raise CampoInvalido(r.text[:300])
+        time.sleep(2 * (tentativa + 1))
+    return None
+
+
 def autor(img: dict) -> str:
     criador = img.get("creator")
     if isinstance(criador, dict):
@@ -293,10 +349,135 @@ def autor(img: dict) -> str:
 
 # ----------------------------------------------------------------------------- principal
 
+def baixar_e_registrar(sessao, saida: Path, escritor, nome: str, escolhidas: list[dict]) -> int:
+    """Baixa as imagens escolhidas e grava uma linha de crédito para cada uma."""
+    baixadas = 0
+    for img in escolhidas:
+        arquivo = f"sp_{nome}_{img['id']}.jpg"
+        destino = saida / img["_conjunto"] / arquivo
+        if not destino.exists():
+            try:
+                r = sessao.get(img["thumb_2048_url"], timeout=60)
+                if r.status_code != 200 or not r.headers.get("content-type", "").startswith("image"):
+                    print(f"  pulei {img['id']} (HTTP {r.status_code})")
+                    continue
+                destino.write_bytes(r.content)
+            except Exception as e:
+                print(f"  pulei {img['id']} ({e})")
+                continue
+            time.sleep(0.05)
+        baixadas += 1
+        t = img.get("_t")
+        data = datetime.fromtimestamp(t / 1000, tz=timezone.utc).strftime("%Y-%m-%d") if t else ""
+        escritor.writerow([arquivo, img["_conjunto"], nome, img["id"], img.get("sequence", ""), autor(img),
+                           data, f"https://www.mapillary.com/app/?pKey={img['id']}", LICENCA])
+    return baixadas
+
+
+def ler_sequencia(especificacao: str) -> tuple[str, str, bool]:
+    """'bras=CHAVE' ou 'bras=CHAVE:teste' -> (bairro, chave, vai_para_teste)."""
+    nome, sep, resto = especificacao.partition("=")
+    if not sep or not resto.strip():
+        raise SystemExit(f"Use --sequencia bairro=CHAVE_DA_SEQUENCIA (recebi '{especificacao}').")
+    chave, _, marca = resto.strip().partition(":")
+    return nome.strip().lower().replace(" ", "_"), chave.strip(), marca.strip().lower() == "teste"
+
+
+def modo_sequencias(args, sessao, saida: Path, escritor, anteriores: dict, ids_ja_baixados: set) -> None:
+    """Baixa sequências escolhidas a dedo no mapa do Mapillary (bairro=CHAVE[:teste])."""
+    pedidos = [ler_sequencia(s) for s in args.sequencia]
+    campos = CAMPOS_IMAGEM
+    por_bairro: dict[str, list[dict]] = defaultdict(list)
+    forcadas: set = set()
+    for nome, chave, teste in pedidos:
+        ids = ids_da_sequencia(sessao, args.token, chave)
+        print(f"\n== {nome}: sequência {chave} com {len(ids)} imagens")
+        if not ids:
+            continue
+        passo = max(1, len(ids) // 60)  # até 60 candidatas espalhadas pela sequência
+        dados = []
+        for image_id in ids[::passo][:60]:
+            if image_id in ids_ja_baixados:
+                continue
+            try:
+                d = detalhes_da_imagem(sessao, args.token, image_id, campos)
+            except CampoInvalido:
+                campos = CAMPOS_IMAGEM_BASICOS
+                d = detalhes_da_imagem(sessao, args.token, image_id, campos)
+            if d:
+                d.setdefault("sequence", chave)
+                dados.append(d)
+        imagens = preparar(dados, args.desde)
+        escolhidas = espacar(imagens, args.distancia_minima, args.por_sequencia)
+        print(f"  {len(escolhidas)} imagens escolhidas, com pelo menos {args.distancia_minima:.0f} m entre elas")
+        por_bairro[nome].extend(escolhidas)
+        if teste:
+            forcadas.add(chave)
+    todas = [img for lista in por_bairro.values() for img in lista]
+    marcar_teste(todas, args.fracao_teste, forcadas, anteriores)
+    for nome, lista in por_bairro.items():
+        baixadas = baixar_e_registrar(sessao, saida, escritor, nome, lista)
+        teste = sum(1 for i in lista if i["_conjunto"] == "teste")
+        print(f"  {nome}: {baixadas} imagens salvas ({teste} no teste)")
+
+
+def listar_candidatas(imagens: list[dict], limite: int = 30) -> None:
+    """Imprime as sequências mais lentas da área, com link para conferir no navegador."""
+    por_sequencia: dict[str, list[dict]] = defaultdict(list)
+    for img in imagens:
+        if img.get("sequence"):
+            por_sequencia[img["sequence"]].append(img)
+    linhas = []
+    for seq, lista in por_sequencia.items():
+        perfil = perfil_velocidade(lista)
+        if perfil and len(lista) >= 5:
+            primeira = min(lista, key=lambda i: i.get("_t") or 0)
+            linhas.append((perfil[0], perfil[1], perfil[2], len(lista), seq, primeira["id"]))
+    linhas.sort()
+    print(f"  {len(linhas)} sequências com dados de velocidade; as {min(limite, len(linhas))} mais lentas:")
+    print("  mediana  pico  parado  fotos  sequência                 conferir")
+    for med, pico, parado, n, seq, img_id in linhas[:limite]:
+        print(f"  {med:5.1f}  {pico:5.1f}  {parado:5.0%}  {n:5d}  {seq:<24}  https://www.mapillary.com/app/?pKey={img_id}")
+
+
+def modo_caixas(args, sessao, saida: Path, escritor, sequencias_usadas: set) -> None:
+    """Busca por bairro (caixa) e filtra sequências capturadas a pé pela velocidade."""
+    campos = CAMPOS_COMPLETOS
+    for nome, caixa in (caixa_da_regiao(r) for r in args.regiao):
+        print(f"\n== {nome}: buscando imagens em {caixa}")
+        dados = []
+        for bloco in dividir(caixa, 0.006):
+            try:
+                dados.extend(buscar_bloco(sessao, args.token, bloco, campos))
+            except CampoInvalido:
+                print("  a API recusou campos extras; seguindo só com os campos básicos")
+                campos = CAMPOS_BASICOS
+                dados.extend(buscar_bloco(sessao, args.token, bloco, campos))
+        imagens = [i for i in preparar(dados, args.desde) if i.get("sequence") not in sequencias_usadas]
+        if args.listar:
+            listar_candidatas(imagens)
+            continue
+        escolhidas, resumo = selecionar(
+            imagens, args.por_regiao, args.fracao_teste, args.vel_min, args.vel_max, args.vel_pico,
+            args.max_parado, args.qualquer_velocidade, args.distancia_minima, args.max_por_sequencia, args.semente,
+        )
+        print(f"  {len(imagens)} imagens válidas em {resumo['sequencias']} sequências "
+              f"({resumo['a_pe']} a pé, {resumo['outras']} de veículo, {resumo['sem_velocidade']} sem dado de velocidade)")
+        if len(escolhidas) < args.por_regiao:
+            print(f"  aviso: só {len(escolhidas)} imagens a pé disponíveis. Se vierem fotos de carro, "
+                  "escolha sequências a dedo no mapa e use --sequencia.")
+        baixadas = baixar_e_registrar(sessao, saida, escritor, nome, escolhidas)
+        teste = sum(1 for i in escolhidas if i["_conjunto"] == "teste")
+        print(f"  {baixadas} imagens salvas ({teste} reservadas ao teste)")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--regiao", action="append", required=True, help="bairro pré-definido ou nome=lon_min,lat_min,lon_max,lat_max")
+    p.add_argument("--regiao", action="append", default=[], help="bairro pré-definido ou nome=lon_min,lat_min,lon_max,lat_max")
+    p.add_argument("--sequencia", action="append", default=[],
+                   help="sequência escolhida no mapa: bairro=CHAVE (ou bairro=CHAVE:teste para mandá-la ao teste)")
     p.add_argument("--por-regiao", type=int, default=200, help="imagens NOVAS por bairro nesta rodada (padrão 200)")
+    p.add_argument("--por-sequencia", type=int, default=25, help="imagens por sequência no modo --sequencia")
     p.add_argument("--fracao-teste", type=float, default=0.15, help="fração reservada ao teste, por sequência")
     p.add_argument("--saida", default="mapillary_sp", help="pasta de saída")
     p.add_argument("--token", default=os.getenv("MAPILLARY_TOKEN", ""), help="Client Token (ou variável MAPILLARY_TOKEN)")
@@ -306,79 +487,46 @@ def main() -> None:
     p.add_argument("--max-parado", type=float, default=0.3, help="fração máxima de trechos parados (carro no trânsito)")
     p.add_argument("--qualquer-velocidade", action="store_true", help="aceita sequências de carro e bicicleta também")
     p.add_argument("--distancia-minima", type=float, default=8.0, help="metros entre imagens da mesma sequência")
-    p.add_argument("--max-por-sequencia", type=int, default=8, help="máximo de imagens por sequência (mais variedade)")
+    p.add_argument("--max-por-sequencia", type=int, default=8, help="máximo de imagens por sequência no modo --regiao")
     p.add_argument("--desde", type=int, default=2018, help="ano mínimo de captura")
     p.add_argument("--semente", type=int, default=42)
+    p.add_argument("--listar", action="store_true",
+                   help="com --regiao: só lista as sequências mais lentas, com link para conferir, sem baixar")
     args = p.parse_args()
 
     if not args.token:
         raise SystemExit('Falta o token. No cmd:  set "MAPILLARY_TOKEN=MLY|..."  (com aspas) e rode de novo.')
+    if not args.regiao and not args.sequencia:
+        raise SystemExit("Diga o que baixar: --regiao bairro  ou  --sequencia bairro=CHAVE")
     import requests
 
-    regioes = [caixa_da_regiao(r) for r in args.regiao]
     saida = Path(args.saida)
     for conjunto in ("treino", "teste"):
         (saida / conjunto).mkdir(parents=True, exist_ok=True)
     caminho_creditos = saida / "creditos.csv"
     novo_arquivo = not caminho_creditos.exists()
-    # sequências de rodadas anteriores ficam de fora: rodar de novo só traz imagens novas,
+    # o que já foi baixado antes: rodar de novo só traz imagens novas,
     # e nenhuma sequência se divide entre treino e teste
-    sequencias_usadas: set[str] = set()
+    anteriores: dict[str, str] = {}
+    ids_ja_baixados: set[str] = set()
     if not novo_arquivo:
         with caminho_creditos.open(encoding="utf-8") as f:
-            sequencias_usadas = {linha["sequencia"] for linha in csv.DictReader(f) if linha.get("sequencia")}
-        print(f"{len(sequencias_usadas)} sequências já baixadas antes serão ignoradas.")
+            for linha in csv.DictReader(f):
+                if linha.get("sequencia"):
+                    anteriores[linha["sequencia"]] = linha.get("conjunto", "treino")
+                ids_ja_baixados.add(linha.get("image_id", ""))
+        print(f"{len(anteriores)} sequências já baixadas antes.")
 
     sessao = requests.Session()
-    campos = CAMPOS_COMPLETOS
     with caminho_creditos.open("a", newline="", encoding="utf-8") as f:
         escritor = csv.writer(f)
         if novo_arquivo:
             escritor.writerow(["arquivo", "conjunto", "regiao", "image_id", "sequencia", "autor",
                                "capturada_em", "link", "licenca"])
-        for nome, caixa in regioes:
-            print(f"\n== {nome}: buscando imagens em {caixa}")
-            dados = []
-            for bloco in dividir(caixa, 0.006):
-                try:
-                    dados.extend(buscar_bloco(sessao, args.token, bloco, campos))
-                except CampoInvalido:
-                    print("  a API recusou campos extras; seguindo só com os campos básicos")
-                    campos = CAMPOS_BASICOS
-                    dados.extend(buscar_bloco(sessao, args.token, bloco, campos))
-            imagens = [i for i in preparar(dados, args.desde) if i.get("sequence") not in sequencias_usadas]
-            escolhidas, resumo = selecionar(
-                imagens, args.por_regiao, args.fracao_teste, args.vel_min, args.vel_max, args.vel_pico,
-                args.max_parado, args.qualquer_velocidade, args.distancia_minima, args.max_por_sequencia, args.semente,
-            )
-            print(f"  {len(imagens)} imagens válidas em {resumo['sequencias']} sequências "
-                  f"({resumo['a_pe']} a pé, {resumo['outras']} de veículo, {resumo['sem_velocidade']} sem dado de velocidade)")
-            if len(escolhidas) < args.por_regiao:
-                print(f"  aviso: só {len(escolhidas)} imagens a pé disponíveis. Para mais, aumente a caixa "
-                      "ou use --qualquer-velocidade.")
-
-            baixadas = 0
-            for img in escolhidas:
-                arquivo = f"sp_{nome}_{img['id']}.jpg"
-                destino = saida / img["_conjunto"] / arquivo
-                if not destino.exists():
-                    try:
-                        r = sessao.get(img["thumb_2048_url"], timeout=60)
-                        if r.status_code != 200 or not r.headers.get("content-type", "").startswith("image"):
-                            print(f"  pulei {img['id']} (HTTP {r.status_code})")
-                            continue
-                        destino.write_bytes(r.content)
-                    except Exception as e:
-                        print(f"  pulei {img['id']} ({e})")
-                        continue
-                    time.sleep(0.05)
-                baixadas += 1
-                t = img.get("_t")
-                data = datetime.fromtimestamp(t / 1000, tz=timezone.utc).strftime("%Y-%m-%d") if t else ""
-                escritor.writerow([arquivo, img["_conjunto"], nome, img["id"], img.get("sequence", ""), autor(img),
-                                   data, f"https://www.mapillary.com/app/?pKey={img['id']}", LICENCA])
-            teste = sum(1 for i in escolhidas if i["_conjunto"] == "teste")
-            print(f"  {baixadas} imagens salvas ({teste} reservadas ao teste)")
+        if args.sequencia:
+            modo_sequencias(args, sessao, saida, escritor, anteriores, ids_ja_baixados)
+        if args.regiao:
+            modo_caixas(args, sessao, saida, escritor, set(anteriores))
 
     print(f"\nPronto. Imagens em {saida}/treino e {saida}/teste; créditos em {caminho_creditos}.")
     print("Antes de subir no Roboflow, olhem as imagens e apaguem as que não mostram calçada.")

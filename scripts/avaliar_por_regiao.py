@@ -2,9 +2,9 @@
 
 Serve para o item de IA responsável: o detector funciona igual nas calçadas da
 periferia e do centro? Os grupos são definidos pelo começo do nome do arquivo,
-por isso as fotos próprias devem ser nomeadas antes do upload, por exemplo:
-  sp_itaquera_001.jpg, sp_jabaquara_014.jpg, sp_paulista_007.jpg
-(o Roboflow mantém o começo do nome: sp_itaquera_001_jpg.rf.<hash>.jpg)
+que o scripts/baixar_mapillary.py já grava como sp_<bairro>_<id>.jpg, por exemplo:
+  sp_itaquera_1234.jpg, sp_jabaquara_5678.jpg, sp_paulista_9012.jpg
+(o Roboflow mantém o começo do nome: sp_itaquera_1234_jpg.rf.<hash>.jpg)
 
 Uso:
   python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dataset/data.yaml \

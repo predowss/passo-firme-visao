@@ -1,6 +1,6 @@
 # Guia de coleta e anotação — Passo Firme
 
-Todo mundo que fotografa ou anota segue este guia. Anotação inconsistente (um anota a placa quebrada inteira, outro só a borda) derruba o mAP mais do que qualquer ajuste de treino.
+Todo mundo que revisa ou anota imagens segue este guia. Anotação inconsistente (um anota a placa quebrada inteira, outro só a borda) derruba o mAP mais do que qualquer ajuste de treino.
 
 ## 1. Classes
 
@@ -23,29 +23,33 @@ A quarta classe só entra no treino com pelo menos 80 exemplos anotados.
 6. **Na dúvida se é barreira**, não anote e deixe a foto de fora. Foto com barreira sem anotação ensina o modelo a ignorá-la.
 7. **Fotos sem barreira nenhuma** (calçada boa) entram como imagem vazia (*null*). Mantenham perto de 10% do total: ensinam o modelo a não inventar barreira.
 
-## 3. Como fotografar
+## 3. Imagens de São Paulo (Mapillary)
 
-- **Quantidade:** 150 a 250 fotos próprias. Mais vale 200 fotos variadas que 400 da mesma rua.
-- **Onde:** duas regiões, para comparar o desempenho depois. Uma da periferia (o distrito piloto, ex.: Itaquera ou Jabaquara) e uma do centro (ex.: entorno da Paulista).
-- **Ângulo:** na altura do peito, celular na horizontal, apontando para o chão 2 a 5 metros à frente, como o vídeo de demonstração vai ver. Algumas fotos de perto e algumas de lado.
-- **Variedade:** manhã, meio-dia e fim de tarde; sol e sombra; piso de concreto, ladrilho e pedra portuguesa; seco e molhado.
-- **Nome do arquivo antes do upload:** `sp_<bairro>_<número>.jpg`, ex.: `sp_itaquera_001.jpg`, `sp_paulista_014.jpg`. O começo do nome é o que separa periferia e centro na avaliação.
-- **Vídeos:** gravem 2 ou 3 vídeos de 30 a 60 segundos andando na calçada. Eles não entram no treino (quadros vizinhos são quase iguais e inflariam as métricas); servem para testar o tempo real e para o vídeo de entrega.
+As imagens de calçadas de São Paulo vêm do Mapillary, filtradas para sequências capturadas a pé.
+
+1. **Token.** Crie uma conta em mapillary.com, registre um app na área de desenvolvedores e copie o *Client Token* (começa com `MLY|`).
+2. **Baixar.** No Prompt de Comando, dentro da pasta do repositório (as aspas são obrigatórias por causa do `|`):
+
+   ```cmd
+   set "MAPILLARY_TOKEN=MLY|..."
+   py scripts\baixar_mapillary.py --regiao itaquera --regiao jabaquara --regiao paulista --regiao se
+   ```
+
+   O padrão é 200 imagens por bairro. Os quatro bairros já têm caixas pré-definidas em volta de pontos conhecidos (estação Itaquera, estação Jabaquara, Av. Paulista e Praça da Sé); para outro bairro, use `--regiao "nome=lon_min,lat_min,lon_max,lat_max"`.
+3. **Revisar.** Abram as pastas `mapillary_sp/treino` e `mapillary_sp/teste` e apaguem as imagens que não mostram calçada (só rua, interior de ônibus, foto escura ou tremida). Contem com descartar uma parte. Se sobrar pouco, rodem o mesmo comando de novo: ele ignora as sequências já baixadas e traz imagens novas (`--por-regiao 100` = mais 100 por bairro).
+4. **Créditos.** Copiem `mapillary_sp/creditos.csv` para `dados/creditos_mapillary.csv` no repositório. Linhas de imagens descartadas podem ficar: sobra crédito, não falta.
+5. **Licença.** As imagens do Mapillary são CC BY-SA 4.0. Mudem a licença do projeto no Roboflow para CC BY-SA 4.0 e citem o Mapillary no README e no PDF.
 
 ## 4. Privacidade (LGPD)
 
 O projeto no Roboflow e o repositório são públicos, então nenhuma pessoa ou placa pode ser identificável.
 
-- Enquadrem o chão, não as pessoas. Esperem o pedestre passar.
-- Não fotografem dentro de imóveis, portões abertos ou janelas.
-- Antes do upload, passem as fotos pelo anonimizador:
-  `python src/anonimizar.py fotos_brutas/ fotos_anonimas/`
-  e subam só a pasta `fotos_anonimas/`. Confiram uma a uma: o que escapar, apaguem.
+- O Mapillary borra rostos e placas automaticamente, mas não é perfeito. Na revisão do passo 3, apaguem qualquer imagem com rosto ou placa legível.
+- As imagens da calçada filmada ao vivo para o vídeo seguem a mesma regra: esperem o pedestre passar e não mostrem ninguém de fora do grupo com o rosto identificável.
 
 ## 5. Divisão sem vazamento
 
-A mesma barreira fotografada de dois ângulos não pode cair uma no treino e outra no teste: o teste mediria memória, não generalização.
+A mesma barreira aparece em várias fotos seguidas de uma sequência. Se uma cair no treino e outra no teste, o teste mede memória, não generalização.
 
-- Separem **por rua**: escolham 1 ou 2 ruas de cada região e reservem todas as fotos delas para o **teste**.
-- Subam essas fotos num lote separado e mandem o lote inteiro para o conjunto de teste ao adicioná-lo ao dataset.
-- O resto (fotos próprias e datasets abertos) é dividido pelo Roboflow em treino e validação.
+- O script já separa **sequências inteiras** para o teste (cerca de 15%) na pasta `mapillary_sp/teste`.
+- No Roboflow, subam as duas pastas em lotes separados: o lote `teste` vai inteiro para o conjunto **Test**; o lote `treino` é dividido entre **Train** (cerca de 85%) e **Valid** (cerca de 15%).

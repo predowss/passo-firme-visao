@@ -55,7 +55,14 @@ Detalhes por classe, comparação nano × small, periferia × centro e análise 
 
 ### 1. Dataset
 
-Siga `docs/guia_de_anotacao.md` (classes, fotos, anonimização e divisão por rua). O dataset final está no Roboflow; o notebook baixa a versão usada.
+As imagens de São Paulo vêm do Mapillary, filtradas para sequências capturadas a pé e separadas por bairro:
+
+```bash
+set "MAPILLARY_TOKEN=MLY|..."          # Windows (cmd); no Linux/Mac: export MAPILLARY_TOKEN='MLY|...'
+py scripts/baixar_mapillary.py --regiao itaquera --regiao jabaquara --regiao paulista --regiao se
+```
+
+Depois, siga `docs/guia_de_anotacao.md` (classes, revisão das imagens, anotação e divisão por sequência). O dataset final está no Roboflow; o notebook baixa a versão usada.
 
 ### 2. Treino (Google Colab, GPU T4)
 
@@ -125,6 +132,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 │   ├── api.py             serviço POST /detectar (FastAPI)
 │   └── anonimizar.py      pixela cabeças e placas (LGPD)
 ├── scripts/
+│   ├── baixar_mapillary.py    imagens de SP por bairro, só sequências a pé, com créditos
 │   ├── contar_classes.py      tabela do dataset por classe e conjunto
 │   └── avaliar_por_regiao.py  métricas por grupo de imagens (periferia × centro)
 ├── docs/
@@ -141,7 +149,8 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 ## Dados, licenças e privacidade
 
 - Datasets abertos do Roboflow Universe, cada um com autor, link e licença em `dados/README.md`.
-- Fotos próprias tiradas pelo grupo em vias públicas, com rostos e placas pixelados antes do upload.
+- Imagens de calçadas de São Paulo do [Mapillary](https://www.mapillary.com), licença CC BY-SA 4.0, capturadas a pé por colaboradores e já com rostos e placas borrados pela plataforma. Autor e link de cada imagem em `dados/creditos_mapillary.csv`.
+- Por causa da licença CC BY-SA das imagens do Mapillary, o dataset deste projeto é distribuído sob CC BY-SA 4.0.
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs.
 
 ## Limitações

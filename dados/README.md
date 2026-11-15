@@ -3,7 +3,7 @@
 As imagens não ficam no Git: elas moram no projeto do Roboflow e são baixadas pelo notebook.
 
 - **Projeto no Roboflow:** [link público do projeto]
-- **Versão usada no modelo final:** [número] (datasets abertos + fotos próprias)
+- **Versão usada no modelo final:** [número] (datasets abertos + imagens de SP do Mapillary)
 - **Versão só com datasets abertos (experimento C):** [número]
 
 Para rodar os scripts localmente, baixe a versão no formato YOLO (`yolov8`) para `dados/<nome>/` e use o `data.yaml` que vem junto. O `data.yaml.exemplo` mostra a forma esperada.
@@ -14,6 +14,10 @@ Para rodar os scripts localmente, baixe a versão no formato YOLO (`yolov8`) par
 | --- | --- | --- | ---: | --- |
 | [nome] | [link] | [licença] | [N] | [ex.: pothole → buraco] |
 
-## Fotos próprias
+## Imagens de São Paulo (Mapillary)
 
-[N] fotos de calçadas de [bairros], tiradas pelo grupo entre [datas], com rostos e placas pixelados antes do upload. Nomes no padrão `sp_<bairro>_<número>.jpg`.
+[N] imagens de calçadas de [bairros], baixadas com `scripts/baixar_mapillary.py`: só sequências capturadas a pé (0,3 a 2,5 m/s), no máximo 12 imagens por sequência, com pelo menos 8 m entre elas. Nomes no padrão `sp_<bairro>_<id>.jpg`.
+
+- **Licença:** CC BY-SA 4.0. Por isso o projeto no Roboflow também usa CC BY-SA 4.0.
+- **Créditos:** `creditos_mapillary.csv` (cópia do `creditos.csv` gerado pelo script), com autor, data e link de cada imagem.
+- **Privacidade:** o Mapillary borra rostos e placas automaticamente; mesmo assim, cada imagem foi revisada antes do upload.

@@ -26,9 +26,9 @@ Trechos entre colchetes, como `[X]`, saem do notebook depois do treino. Ao termi
 
 ## Resumo
 
-Calçadas com buracos, desníveis e obstáculos derrubam e isolam justamente quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, uma CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer três classes: buraco, desnível e obstáculo. O conjunto de dados combina datasets abertos do Roboflow Universe, com as classes reagrupadas para o nosso problema, e [N] fotos próprias de calçadas de [bairros], anotadas segundo um guia único e divididas por rua para evitar vazamento entre treino e teste. No conjunto de teste, o modelo atingiu mAP50 de [X], precisão de [X] e recall de [X], rodando a [X] quadros por segundo na CPU de um notebook. Também comparamos o desempenho entre periferia e centro e medimos o ganho trazido pelas fotos próprias em relação a um modelo treinado só com dados abertos. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e está publicado como serviço do aplicativo, que anonimiza rostos e placas e envia casos de baixa confiança para revisão humana.
+Calçadas com buracos, desníveis e obstáculos derrubam e isolam justamente quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, uma CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer três classes: buraco, desnível e obstáculo. O conjunto de dados combina datasets abertos do Roboflow Universe, com as classes reagrupadas para o nosso problema, e [N] imagens de calçadas de [bairros] obtidas no Mapillary, capturadas a pé, anotadas segundo um guia único e divididas por sequência para evitar vazamento entre treino e teste. No conjunto de teste, o modelo atingiu mAP50 de [X], precisão de [X] e recall de [X], rodando a [X] quadros por segundo na CPU de um notebook. Também comparamos o desempenho entre periferia e centro e medimos o ganho trazido pelas imagens de São Paulo em relação a um modelo treinado só com dados abertos. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e está publicado como serviço do aplicativo, que anonimiza rostos e placas e envia casos de baixa confiança para revisão humana.
 
-*(240 palavras; depois de preencher, confiram se continua perto de 250.)*
+*(247 palavras; depois de preencher, confiram se continua perto de 250.)*
 
 ## Introdução
 
@@ -54,7 +54,9 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 **Transfer learning.** Em vez de treinar do zero, partimos dos pesos aprendidos no COCO (330 mil imagens, 80 classes do dia a dia). A rede já sabe reconhecer bordas, sombras e objetos; o ajuste fino ensina as nossas classes com centenas de imagens, e não milhões.
 
-**Roboflow.** Plataforma usada para clonar datasets abertos do Roboflow Universe, reagrupar as classes deles nas nossas (ferramenta *Modify Classes*), anotar as fotos próprias (com sugestões automáticas do *Label Assist*), dividir treino, validação e teste e exportar no formato YOLO.
+**Roboflow.** Plataforma usada para clonar datasets abertos do Roboflow Universe, reagrupar as classes deles nas nossas (ferramenta *Modify Classes*), anotar as imagens de São Paulo (com sugestões automáticas do *Label Assist*), dividir treino, validação e teste e exportar no formato YOLO.
+
+**Mapillary.** Plataforma colaborativa de imagens de rua, com fotos publicadas sob licença CC BY-SA 4.0 e rostos e placas borrados automaticamente. Pela API, baixamos imagens de bairros escolhidos de São Paulo e, pela posição e pelo horário de cada foto, ficamos só com as sequências capturadas a pé, que têm o ponto de vista do pedestre.
 
 **Google Colab.** Ambiente de notebooks com GPU NVIDIA T4 gratuita, usado para treinar e avaliar.
 
@@ -78,9 +80,9 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    | --- | --- | --- | ---: | --- |
    | [nome] | [link] | [CC BY 4.0] | [N] | [ex.: pothole → buraco] |
 
-3. **Fotos próprias.** [N] fotos de calçadas de [bairros da periferia] e [bairros do centro], tiradas na altura do peito, em horários e pisos variados. Rostos e placas pixelados antes do upload (`src/anonimizar.py`).
+3. **Imagens de São Paulo (Mapillary).** [N] imagens de calçadas de [bairros da periferia] e [bairros do centro], baixadas com `scripts/baixar_mapillary.py`. O script calcula a velocidade de cada sequência pela posição e pelo horário das fotos e mantém só as capturadas a pé (0,3 a 2,5 m/s), no máximo 12 imagens por sequência e com pelo menos 8 m entre elas, para evitar fotos quase iguais. Cada imagem foi revisada; as que não mostravam calçada foram descartadas. Autor e link de cada uma estão em `dados/creditos_mapillary.csv` (licença CC BY-SA 4.0).
 4. **Anotação.** Feita no Roboflow, com sugestões automáticas conferidas uma a uma, seguindo um guia único de caixas.
-5. **Divisão sem vazamento.** Todas as fotos de [N] ruas reservadas para o teste, para que a mesma barreira nunca apareça no treino e no teste. Divisão final: [N] treino, [N] validação, [N] teste.
+5. **Divisão sem vazamento.** Sequências inteiras do Mapillary reservadas para o teste ([N] sequências, cerca de 15% das imagens), para que a mesma barreira, fotografada por quem passou ali, nunca apareça no treino e no teste. Divisão final: [N] treino, [N] validação, [N] teste.
 
    [Tabela do dataset por classe e conjunto: saída `tabela_dataset` do notebook]
 
@@ -94,7 +96,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    | Lote | 16 |
    | Aumento de dados | mosaico, cor (HSV), escala, translação, espelhamento horizontal |
 
-7. **Experimentos.** (A) YOLO26n com todos os dados; (B) YOLO26s com os mesmos dados; (C) YOLO26n só com datasets abertos, avaliado nas fotos próprias. [Retirar C se não rodou.]
+7. **Experimentos.** (A) YOLO26n com todos os dados; (B) YOLO26s com os mesmos dados; (C) YOLO26n só com datasets abertos, avaliado nas imagens de São Paulo. [Retirar C se não rodou.]
 8. **Avaliação.** Métricas no conjunto de teste, por classe; matriz de confusão; desempenho separado por região (periferia × centro); análise dos piores casos.
 9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (via app de transmissão na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo.
 10. **Integração ao MVP.** O serviço `POST /detectar` recebe a foto do app, roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos) e devolve as detecções e a foto anonimizada. Se a maior confiança fica abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado.
@@ -117,7 +119,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 **Periferia × centro:** [tabela `por_regiao`, com uma frase interpretando a diferença]
 
-**Efeito das fotos próprias:** [tabela `efeito_fotos`, se rodou]
+**Efeito das imagens de São Paulo:** [tabela `efeito_fotos`, se rodou]
 
 **Figuras** (cada uma com legenda):
 - Figura 1: curvas de treino (`results.png`).
@@ -130,13 +132,13 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 | # | O que o modelo fez | Causa provável | Correção proposta |
 | --- | --- | --- | --- |
-| 1 | [ex.: não viu buraco coberto por folhas] | [poucos exemplos com folhas] | [fotografar mais com folhas e chuva] |
+| 1 | [ex.: não viu buraco coberto por folhas] | [poucos exemplos com folhas] | [mais imagens com folhas e chuva] |
 
 ## Conclusão
 
 [Responder em 2 ou 3 parágrafos: o objetivo foi atingido? Cite o mAP50 e o recall no teste e o FPS. Qual classe é mais difícil e por quê. O desempenho na periferia foi parecido com o do centro?]
 
-**Limitações.** [Ex.: poucas fotos noturnas e de chuva; classe `desnivel` confundida com sombra; anonimização por heurística, que pode deixar escapar um rosto muito pequeno.]
+**Limitações.** [Ex.: imagens do Mapillary capturadas por terceiros, em datas variadas, e a calçada pode ter mudado desde então; poucas fotos noturnas e de chuva; classe `desnivel` confundida com sombra; anonimização por heurística, que pode deixar escapar um rosto muito pequeno.]
 
 **Próximos passos.** Mais fotos enviadas pelos próprios cidadãos (com confirmação no app, viram novos rótulos); estimar o tamanho da barreira para priorizar; rodar o modelo no celular, sem internet; usar a câmera do robô vistoriador do Maker Lab.
 
@@ -149,5 +151,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 - Ultralytics. YOLO26 — documentação dos modelos. https://docs.ultralytics.com/models/
 - Monte, D. M. F. M. do; Goldschmidt, R. R.; Santos, M. dos. Identificação e Classificação de Patologias em Pavimentos Rodoviários Flexíveis e Rígidos Utilizando YOLOv8. WebMedia, SBC. https://sol.sbc.org.br/index.php/webmedia/article/download/37973/37751
 - Damaceno, R. J. P. et al. SideSeeing: a multimodal dataset and collection of tools for sidewalk assessment. arXiv:2407.06464. https://arxiv.org/abs/2407.06464
+- Mapillary. CC BY-SA license for open data. https://help.mapillary.com/hc/en-us/articles/115001770409-CC-BY-SA-license-for-open-data
+- Mapillary. Image privacy. https://help.mapillary.com/hc/en-us/articles/115001770349
 - Roboflow. Preprocess Images (Modify Classes). https://docs.roboflow.com/datasets/dataset-versions/image-preprocessing
 - [Cada dataset do Roboflow Universe usado, com autor, link e licença]

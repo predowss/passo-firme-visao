@@ -5,7 +5,7 @@ O vídeo prova que a solução funciona: mostrem o detector rodando de verdade, 
 | Tempo | Cena | O que aparece | Fala (resumo) |
 | --- | --- | --- | --- |
 | 0:00–0:20 | Problema | Imagens reais de uma calçada com buraco e placa levantada | "Em SP, pedidos de conserto de calçada esperam 33 dias em média. Quem mais sofre são idosos e pessoas com deficiência." |
-| 0:20–0:50 | Dados e treino | Roboflow com as anotações; Colab com `results.png` e a tabela por classe | "Juntamos datasets abertos e [N] fotos nossas, anotamos 3 classes e treinamos um YOLO26n. No teste: mAP50 de [X] e recall de [X]." |
+| 0:20–0:50 | Dados e treino | Roboflow com as anotações; Colab com `results.png` e a tabela por classe | "Juntamos datasets abertos e [N] imagens de calçadas de São Paulo do Mapillary, anotamos 3 classes e treinamos um YOLO26n. No teste: mAP50 de [X] e recall de [X]." |
 | 0:50–2:20 | Tempo real (a parte mais importante) | Tela dividida: à esquerda, quem filma andando na calçada; à direita, o notebook com caixas, FPS e a zona ficando vermelha | "O celular transmite a câmera para o notebook. Quando uma barreira entra na faixa à frente, o aviso aparece." Parem diante de cada tipo de barreira. |
 | 2:20–2:50 | Integração com o app | `/docs` do serviço (ou o app do Passo Firme): enviar uma foto, ver o JSON e a foto com rostos e placas pixelados | "No app, a foto do cidadão vira detecção. Rostos e placas saem borrados, e casos incertos vão para revisão humana." |
 | 2:50–3:30 | Resultados e limites | Tabela periferia × centro; um erro típico | "O modelo erra mais com [X]. Próximo passo: mais fotos de chuva e noite." |

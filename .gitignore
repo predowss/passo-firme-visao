@@ -5,6 +5,7 @@ modelos/yolo26*.pt
 # saídas de treino e datasets baixados
 runs/
 dados/*/
+mapillary_sp/
 *.cache
 
 # vídeos grandes (o vídeo de entrega vai para o YouTube)

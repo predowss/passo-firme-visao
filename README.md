@@ -49,7 +49,7 @@ Conjunto de teste com fotos de ruas que o modelo nunca viu.
 
 [Figura: `resultados/exemplos_acerto.png`]
 
-Detalhes por classe, comparação nano × small, periferia × centro e análise de erros estão no relatório e no notebook.
+Detalhes por classe, comparação nano × small, desempenho por grupo de imagens e análise de erros estão no relatório e no notebook.
 
 ## Como reproduzir
 
@@ -59,8 +59,10 @@ As imagens de São Paulo vêm do Mapillary, filtradas para sequências capturada
 
 ```bash
 set "MAPILLARY_TOKEN=MLY|..."          # Windows (cmd); no Linux/Mac: export MAPILLARY_TOKEN='MLY|...'
-py scripts/baixar_mapillary.py --regiao itaquera --regiao jabaquara --regiao paulista --regiao se
+py scripts/baixar_mapillary.py --regiao se
 ```
+
+Quando o bairro só tem sequências gravadas de carro, `--listar` mostra as mais lentas e `--sequencia "bairro=CHAVE"` baixa as escolhidas a dedo (detalhes no guia de anotação). Completam o dataset 105 imagens do dataset aberto *Sidewalk obstacles* (Blindspot), clonadas no Roboflow com as classes reagrupadas em `obstaculo`.
 
 Depois, siga `docs/guia_de_anotacao.md` (classes, revisão das imagens, anotação e divisão por sequência). O dataset final está no Roboflow; o notebook baixa a versão usada.
 
@@ -115,12 +117,12 @@ curl -F "foto=@calcada.jpg" "http://localhost:8001/detectar?devolver_imagem=fals
 }
 ```
 
-### 5. Avaliação por região (opcional, fora do Colab)
+### 5. Avaliação por grupo de imagens (opcional, fora do Colab)
 
 ```bash
 python scripts/contar_classes.py dados/<dataset>/data.yaml
 python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dataset>/data.yaml \
-    --grupo periferia=sp_itaquera,sp_jabaquara --grupo centro=sp_paulista
+    --grupo centro=sp_se,sp_paulista --grupo periferia=sp_periferia
 ```
 
 ## Estrutura
@@ -134,7 +136,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 ├── scripts/
 │   ├── baixar_mapillary.py    imagens de SP por bairro, só sequências a pé, com créditos
 │   ├── contar_classes.py      tabela do dataset por classe e conjunto
-│   └── avaliar_por_regiao.py  métricas por grupo de imagens (periferia × centro)
+│   └── avaliar_por_regiao.py  métricas por grupo de imagens (bairros, SP × aberto)
 ├── docs/
 │   ├── guia_de_anotacao.md    regras de coleta, anotação e divisão
 │   ├── relatorio_rascunho.md  texto-base do PDF
@@ -148,7 +150,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 
 ## Dados, licenças e privacidade
 
-- Datasets abertos do Roboflow Universe, cada um com autor, link e licença em `dados/README.md`.
+- Dataset aberto *Sidewalk obstacles* (Blindspot), do Roboflow Universe, com link e licença em `dados/README.md`.
 - Imagens de calçadas de São Paulo do [Mapillary](https://www.mapillary.com), licença CC BY-SA 4.0, capturadas a pé por colaboradores e já com rostos e placas borrados pela plataforma. Autor e link de cada imagem em `dados/creditos_mapillary.csv`.
 - O dataset é uma coleção: as anotações e o código do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs.

@@ -1,0 +1,6 @@
+# Uso local: tempo real, anonimização e scripts de avaliação
+ultralytics>=8.4.0
+opencv-python>=4.9
+numpy>=1.26
+pyyaml>=6.0
+lap>=0.5.12   # rastreamento (--rastrear) com IDs

@@ -1,0 +1,18 @@
+# pesos baixados automaticamente (o best.pt em modelos/ É versionado)
+/*.pt
+modelos/yolo26*.pt
+
+# saídas de treino e datasets baixados
+runs/
+dados/*/
+*.cache
+
+# vídeos grandes (o vídeo de entrega vai para o YouTube)
+*.mp4
+*.mov
+
+# Python e segredos
+__pycache__/
+.venv/
+.env
+.ipynb_checkpoints/

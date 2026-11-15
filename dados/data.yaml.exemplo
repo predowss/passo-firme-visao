@@ -1,0 +1,10 @@
+# Forma do data.yaml no formato YOLO (o Roboflow gera um igual ao exportar em "YOLOv8")
+path: dados/passo-firme-calcadas-2   # pasta do dataset baixado
+train: train/images
+val: valid/images
+test: test/images
+names:
+  - buraco
+  - desnivel
+  - obstaculo
+  # - veiculo_na_calcada   # só se tiver pelo menos 80 exemplos

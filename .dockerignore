@@ -1,0 +1,10 @@
+.git
+.venv
+runs
+dados
+resultados
+notebooks
+docs
+*.mp4
+*.mov
+.env

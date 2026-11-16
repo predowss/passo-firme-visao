@@ -1,12 +1,12 @@
 # Resultados
 
-Figuras e tabelas que vão para o README principal e para o PDF. Copie do Google Drive (`passo-firme-visao/runs`) para cá:
+Figuras que vão para o README principal e para o PDF. Todas vêm do modelo final (YOLO26n, 3 classes, 640 px, rodada 1).
 
-- `results.png` — curvas de treino do experimento A
-- `confusion_matrix_normalized.png` — matriz de confusão no teste
-- `exemplos_acerto.png` e `piores_casos.png` — painéis da seção 7 do notebook
-- `tempo_real.jpg` — um quadro do `tempo_real.py` com a zona de alerta acionada
-- `detectar_resposta.png` — print do `/docs` com a resposta e a foto anonimizada
-- os `.csv` das tabelas (dataset, teste por classe, n × s, por região)
+- `A_yolo26n/results.png`: curvas de treino do experimento A
+- `A_teste/confusion_matrix_normalized.png`: matriz de confusão no teste (31 fotos de São Paulo)
+- `exemplos_acerto.png` e `piores_casos.png`: painéis de acertos e erros no teste
+- `tempo_real_modeloA.jpeg`: o `tempo_real.py` na webcam do PC (lixeira com 0,90; 14,5 FPS)
+- `tempo_real_celular.jpg`: o `tempo_real.py` com a câmera do celular pelo Wi-Fi (DroidCam), em 16/11: lixeira com 0,87, zona de alerta acionada, 10,6 a 11,5 FPS
+- `detectar_resposta_caixas.jpg`: resposta do `/detectar` desenhada na foto, com três obstáculos e a cabeça e as placas pixeladas
 
 Vídeos `.mp4` não entram no Git (estão no `.gitignore`); o vídeo de entrega vai para o YouTube.

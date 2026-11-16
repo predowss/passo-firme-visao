@@ -6,7 +6,7 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 - **Vídeo de demonstração:** em edição; o link do YouTube (não listado) entra aqui até 19/11
 - **Relatório (PDF):** [`docs/relatorio.pdf`](docs/relatorio.pdf) (texto-base em [`docs/relatorio_rascunho.md`](docs/relatorio_rascunho.md))
-- **Notebooks de treino com as saídas:** [rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [rodada 2](notebooks/02_treino_rodada2_colab.ipynb)
+- **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb)
 - **Dataset no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (versão 1, `v1-sp-blindspot`)
 
 ## Integrantes
@@ -61,7 +61,16 @@ Modelo final: YOLO26n, 3 classes, 640 px. Conjunto de teste com 31 fotos de cal�
 | desnivel | 0,59 | 0,10 | 0,12 |
 | buraco | 0,27 | 0,04 | 0,06 |
 
-Precisão e recall da tabela são medidos no limiar de confiança que maximiza o F1. Na matriz de confusão (`resultados/A_teste/`), que usa confiança mínima de 0,25, a mesma do serviço, e sobreposição (IoU) de 0,45, o modelo encontra 69% dos obstáculos, 40% dos desníveis e 36% dos buracos do teste; os falsos alarmes que um limiar baixo traz vão para revisão humana.
+Precisão e recall da tabela são medidos no limiar de confiança que maximiza o F1. Em limiares fixos (`notebooks/03_limiar_confianca_colab.ipynb`, tabela completa em `resultados/limiares.csv`):
+
+| Confiança mínima | Precisão | Recall | Fotos com barreira com ao menos uma detecção | Fotos sem barreira com alarme falso |
+| ---: | ---: | ---: | ---: | ---: |
+| 0,10 | 0,24 | 0,25 | 25 de 26 (96%) | 3 de 5 |
+| 0,25 (serviço) | 0,35 | 0,21 | 21 de 26 (81%) | 2 de 5 |
+| 0,35 (tempo real) | 0,43 | 0,17 | 16 de 26 (62%) | 2 de 5 |
+| 0,50 | 0,65 | 0,15 | 11 de 26 (42%) | 1 de 5 |
+
+Precisão e recall por caixa com IoU de 0,5. Com o limiar de 0,25 do serviço, 4 em cada 5 fotos com barreira chegam com pelo menos uma barreira marcada; as fotos sem nenhuma detecção vão para revisão humana, em vez de se perderem.
 
 **Dados locais fazem diferença:** um modelo igual acerta mAP50 de 0,89 em 16 imagens do dataset aberto que não viu e só 0,11 nas ruas de São Paulo.
 
@@ -164,7 +173,8 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 ```
 ├── notebooks/
 │   ├── 01_treino_yolo26_colab.ipynb   rodada 1: treino, avaliação e figuras (com saídas)
-│   └── 02_treino_rodada2_colab.ipynb  rodada 2: validação só de SP, 2 classes (com saídas)
+│   ├── 02_treino_rodada2_colab.ipynb  rodada 2: validação só de SP, 2 classes (com saídas)
+│   └── 03_limiar_confianca_colab.ipynb precisão e recall por limiar e por foto (com saídas)
 ├── src/
 │   ├── tempo_real.py      detecção ao vivo com zona de alerta, FPS e contagem
 │   ├── api.py             serviço POST /detectar (FastAPI)
@@ -180,7 +190,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 │   └── roteiro_video.md       roteiro e checklist do vídeo
 ├── dados/      README com links, licenças e créditos dos datasets
 ├── modelos/    best.pt treinado
-├── resultados/ figuras do relatório
+├── resultados/ figuras do relatório e tabela de limiares
 ├── Dockerfile
 └── requirements.txt / requirements-api.txt
 ```

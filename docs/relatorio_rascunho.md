@@ -24,7 +24,7 @@ Estrutura exigida pela disciplina, na ordem: título, integrantes, resumo (250 p
 
 ## Resumo
 
-Calçadas com buracos, desníveis e obstáculos derrubam e isolam justamente quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, uma CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer três classes: buraco, desnível e obstáculo. O conjunto de dados combina 180 imagens de calçadas de São Paulo obtidas no Mapillary, capturadas a pé, anotadas segundo um guia único e divididas por sequência para evitar vazamento entre treino e teste, com 105 imagens de um dataset aberto de obstáculos de calçada, com as classes reagrupadas para o nosso problema. No teste, só com ruas de São Paulo, o modelo atingiu mAP50 de 0,16 (0,30 em obstáculos) e roda a 14,5 quadros por segundo num computador comum, sem placa de vídeo. Um modelo igual chega a 0,89 em imagens do dataset aberto que não viu: a diferença mostra quanto dados locais importam. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço para o aplicativo, que anonimiza rostos e placas e envia casos de baixa confiança para revisão humana.
+Calçadas com buracos, desníveis e obstáculos derrubam e isolam quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer três classes: buraco, desnível e obstáculo. O dataset combina 180 imagens de calçadas de São Paulo obtidas no Mapillary, capturadas a pé, anotadas com um guia único e divididas por sequência para evitar vazamento entre treino e teste, com 105 imagens de um dataset aberto de obstáculos, com as classes reagrupadas. No teste, só com ruas de São Paulo, o modelo atingiu mAP50 de 0,16 (0,30 em obstáculos), marcou ao menos uma barreira em 81% das fotos que tinham alguma e roda a 14,5 quadros por segundo num computador comum, sem placa de vídeo. Um modelo igual chega a 0,89 em imagens do dataset aberto que não viu: a diferença mostra quanto dados locais importam. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço do aplicativo, que anonimiza rostos e placas e manda os casos incertos para revisão humana.
 
 ## Introdução
 
@@ -64,7 +64,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 - *Recall:* das barreiras existentes, a fração encontrada. É a métrica mais importante para quem anda: um buraco não detectado custa mais que um falso alarme.
 - *mAP50:* média, entre as classes, da área sob a curva precisão × recall com IoU ≥ 0,5. Não depende de um limiar de confiança.
 - *mAP50-95:* a mesma média, exigindo caixas cada vez mais justas (IoU de 0,5 a 0,95).
-- *Limiar de confiança:* precisão e recall dependem dele. O Ultralytics reporta os dois no limiar que maximiza o F1; a matriz de confusão usa confiança mínima de 0,25 e IoU de 0,45. Limiar mais baixo encontra mais barreiras e traz mais falsos alarmes.
+- *Limiar de confiança:* precisão e recall dependem dele. O Ultralytics reporta os dois no limiar que maximiza o F1; por isso medimos também em limiares fixos. Limiar mais baixo encontra mais barreiras e traz mais falsos alarmes.
 
 ## Metodologia (passo a passo)
 
@@ -102,7 +102,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    - *Rodada 1:* (A) YOLO26n em 640 px; (A2) o mesmo em 960 px, para ver se defeitos pequenos ficavam mais visíveis; (B) YOLO26s em 640 px. A resolução maior não ajudou (mAP50 de 0,15 contra 0,16 no teste) e deixou o modelo mais lento. A validação, que misturava imagens de SP e do dataset aberto, mostrou mAP50 de 0,94 nas abertas e de 0,20 nas de SP: a escolha do modelo estava sendo puxada pelo dataset aberto.
    - *Rodada 2:* a validação passou a ter só imagens de SP; as imagens abertas que estavam nela foram reservadas (16 imagens, fora do treino e da escolha) para medir a diferença. Comparamos (A) 3 classes, (C2) 2 classes, com `buraco` e `desnivel` juntos em `dano_no_piso`, e (B) YOLO26s com 3 classes. Até 100 épocas, parada após 30 sem melhora.
    - *Modelo final:* A da rodada 1 (YOLO26n, 3 classes, 640 px). No teste, os modelos das duas rodadas ficaram dentro da mesma margem para um conjunto de 31 imagens (mAP50 geral de 0,11 a 0,17; em obstáculo, 0,22 a 0,31), e juntar buraco e desnível não ajudou (0,03 em `dano_no_piso`). Por isso o critério de desempate foi o comportamento ao vivo: na câmera, o modelo A da rodada 1 detectou a mesma lixeira com confiança de 0,89 a 0,90, de forma estável, enquanto o C2 oscilava em torno de 0,26 e confundia a quina de uma estante com obstáculo.
-8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; contagem de acertos e erros imagem a imagem com o limiar do tempo real (confiança 0,35, IoU 0,5); desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos.
+8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; precisão e recall em quatro limiares de confiança (0,10, 0,25, 0,35 e 0,50), com IoU de 0,5 e de 0,3, e por foto (`notebooks/03_limiar_confianca_colab.ipynb`); desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos.
 9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
 10. **Serviço para o MVP.** O serviço `POST /detectar` recebe a foto do app, roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada; a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container.
 
@@ -127,7 +127,25 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 | desnivel | 0,59 | 0,10 | 0,12 | 0,07 |
 | buraco | 0,27 | 0,04 | 0,06 | 0,02 |
 
-**O recall depende do limiar.** A tabela acima usa o limiar que maximiza o F1. Na matriz de confusão (Figura 2), com confiança mínima de 0,25 e IoU de 0,45, o modelo encontra 69% dos obstáculos, 40% dos desníveis e 36% dos buracos do teste. Já na contagem imagem a imagem com o limiar do tempo real (confiança 0,35 e IoU 0,5), ele desenhou 28 caixas para 71 barreiras anotadas: 12 acertos, 16 falsos alarmes e 59 barreiras não encontradas. A diferença entre as duas contagens mostra que muitas detecções certas têm confiança entre 0,25 e 0,35 ou caixas que cobrem a barreira sem bater com a anotação. Por isso o serviço usa confiança mínima de 0,25 e manda os casos incertos para revisão humana: é melhor uma pessoa descartar um falso alarme do que o sistema deixar um buraco passar.
+**O recall depende do limiar.** A tabela acima usa o limiar que maximiza o F1. Para ver a troca entre falsos alarmes e barreiras perdidas, medimos o modelo em limiares fixos, com dois critérios: IoU de 0,5 (a caixa precisa cobrir bem a anotada) e IoU de 0,3 (basta estar no lugar certo, que é o que importa para o pedestre e para o app).
+
+| Confiança mínima | Precisão (IoU 0,5) | Recall (IoU 0,5) | Precisão (IoU 0,3) | Recall (IoU 0,3) | Recall de obstáculo (IoU 0,3) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0,10 | 0,24 | 0,25 | 0,34 | 0,35 | 0,56 |
+| 0,25 (serviço) | 0,35 | 0,21 | 0,42 | 0,25 | 0,39 |
+| 0,35 (tempo real) | 0,43 | 0,17 | 0,54 | 0,21 | 0,33 |
+| 0,50 | 0,65 | 0,15 | 0,71 | 0,17 | 0,31 |
+
+Contando por foto, que é como o cidadão usa o app, o quadro é outro:
+
+| Confiança mínima | Fotos com barreira que receberam ao menos uma detecção (de 26) | Fotos sem barreira com alarme falso (de 5) |
+| ---: | ---: | ---: |
+| 0,10 | 25 (96%) | 3 |
+| 0,25 (serviço) | 21 (81%) | 2 |
+| 0,35 (tempo real) | 16 (62%) | 2 |
+| 0,50 | 11 (42%) | 1 |
+
+Com o limiar de 0,25 do serviço, 4 em cada 5 fotos com barreira chegam com pelo menos uma barreira marcada, mesmo que o modelo não encontre todas as barreiras da foto (recall por caixa de 0,21 a 0,25). As fotos em que nada é detectado não se perdem: vão para revisão humana. É por isso que o serviço usa um limiar baixo e uma pessoa no circuito, em vez de um limiar alto, que daria menos falsos alarmes e deixaria mais da metade das fotos com barreira sem nenhuma marcação.
 
 **Rodada 1, efeito da resolução (teste):** YOLO26n 640: mAP50 0,16, 11 FPS na CPU do Colab; YOLO26n 960: mAP50 0,15, 7 FPS. Aumentar a imagem não fez buraco e desnível aparecerem.
 
@@ -156,7 +174,7 @@ O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo
 
 **Figuras** (cada uma com legenda no PDF):
 - Figura 1: curvas de perda e métricas por época no treino do modelo A (`resultados/A_yolo26n/results.png`).
-- Figura 2: matriz de confusão normalizada no teste (`resultados/A_teste/confusion_matrix_normalized.png`).
+- Figura 2: matriz de confusão normalizada no teste; a maior parte dos erros é barreira não encontrada, e não troca entre classes (`resultados/A_teste/confusion_matrix_normalized.png`).
 - Figura 3: exemplos de acerto no teste; verde é a anotação e vermelho a previsão (`resultados/exemplos_acerto.png`).
 - Figura 4: os seis piores casos do teste (`resultados/piores_casos.png`).
 - Figura 5: tempo real com a zona de alerta acionada, pela webcam (lixeira 0,89, 14,3 FPS) e pela câmera do celular (lixeira 0,87) (`resultados/tempo_real_modeloA.jpeg` e `resultados/tempo_real_celular.jpg`).
@@ -174,9 +192,9 @@ O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo
 
 ## Conclusão
 
-O objetivo foi atingido em parte. O grupo treinou de forma customizada um YOLO26n para barreiras de calçada que roda em tempo real num computador comum, sem placa de vídeo (14,5 FPS com a webcam e cerca de 12 FPS com a câmera do celular), avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço, com anonimização e revisão humana. Obstáculos são reconhecidos de forma estável: mAP50 de 0,30 no teste, 69% dos obstáculos encontrados com confiança mínima de 0,25 e detecções firmes ao vivo, como a lixeira com 0,87 a 0,90.
+O objetivo foi atingido em parte. O grupo treinou de forma customizada um YOLO26n para barreiras de calçada que roda em tempo real num computador comum, sem placa de vídeo (14,5 FPS com a webcam e cerca de 12 FPS com a câmera do celular), avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço, com anonimização e revisão humana. Obstáculos são reconhecidos de forma estável: mAP50 de 0,30 no teste e detecções firmes ao vivo, como a lixeira com 0,87 a 0,90. No uso do app, com o limiar de 0,25, 81% das fotos de teste com barreira chegam com pelo menos uma barreira marcada, e as demais vão para revisão humana.
 
-Buraco (mAP50 de 0,06) e desnível (0,12) não foram aprendidos. São formas irregulares, sem borda clara, com cerca de 110 exemplos no treino contra 463 obstáculos, e juntar as duas classes não ajudou. Parte do erro vem da própria medida: caixas no lugar certo, mas de tamanho diferente da anotação, contam como erro com IoU de 0,5. O recall de 0,14 no limiar de maior F1 também esconde que o modelo encontra bem mais barreiras com limiar baixo; por isso o sistema usa limiar de 0,25 e uma pessoa confirma os casos incertos, em vez de deixar barreiras passarem.
+Buraco (mAP50 de 0,06) e desnível (0,12) não foram aprendidos. São formas irregulares, sem borda clara, com cerca de 110 exemplos no treino contra 463 obstáculos, e juntar as duas classes não ajudou. Parte do erro vem da própria medida: caixas no lugar certo, mas de tamanho diferente da anotação, contam como erro com IoU de 0,5. Por caixa, o recall fica entre 0,14 e 0,35 conforme o limiar e a exigência de sobreposição, longe do alto recall que o objetivo pedia; por foto, chega a 81% com o limiar do serviço. Por isso o sistema usa limiar baixo e uma pessoa confirma os casos incertos, em vez de deixar barreiras passarem sem ninguém ver.
 
 A maior lição é sobre dados. Um modelo igual chega a 0,89 em imagens do dataset aberto e a 0,11 nas ruas de São Paulo, e a primeira rodada mostrou que uma validação misturada escolhia o modelo pelo dataset errado. Um detector para calçadas brasileiras precisa de fotos brasileiras, de vários bairros, colaboradores, horários e climas.
 

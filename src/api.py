@@ -50,7 +50,7 @@ modelo_coco = YOLO(MODELO_COCO) if MODELO_COCO else None
 
 app = FastAPI(
     title="Passo Firme - Visão",
-    description="Detecta buracos, desníveis e obstáculos em fotos de calçada e devolve a foto anonimizada.",
+    description="Detecta barreiras em fotos de calçada (dano no piso e obstáculo, ou buraco, desnível e obstáculo, conforme o modelo) e devolve a foto anonimizada.",
     version="1.0.0",
 )
 

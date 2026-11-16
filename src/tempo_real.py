@@ -34,7 +34,10 @@ CORES = {
     "desnivel": (0, 140, 255),          # laranja
     "obstaculo": (0, 215, 255),         # amarelo
     "veiculo_na_calcada": (255, 144, 30),  # azul
+    "dano_no_piso": (36, 28, 237),      # vermelho (modelo de 2 classes: buraco + desnível)
 }
+# como cada classe aparece na tela (o OpenCV não desenha acentos)
+NOME_NA_TELA = {"dano_no_piso": "dano no piso", "veiculo_na_calcada": "veiculo na calcada"}
 VERDE = (80, 175, 76)
 VERMELHO = (36, 28, 237)
 
@@ -84,7 +87,7 @@ def desenhar(frame: np.ndarray, caixas: list[dict], zona: np.ndarray) -> tuple[s
         x1, y1, x2, y2 = map(int, c["xyxy"])
         cor = CORES.get(c["classe"], (255, 255, 255))
         cv2.rectangle(frame, (x1, y1), (x2, y2), cor, 2)
-        rotulo = f'{c["classe"]} {c["conf"]:.2f}' + (f' #{c["id"]}' if c.get("id") is not None else "")
+        rotulo = f'{NOME_NA_TELA.get(c["classe"], c["classe"])} {c["conf"]:.2f}' + (f' #{c["id"]}' if c.get("id") is not None else "")
         escrever(frame, rotulo, (x1 + 4, max(18, y1 - 4)), cor, 0.5)
         # o "pé" da caixa (centro da borda de baixo) é onde a barreira toca o chão
         if na_zona(zona, (x1 + x2) / 2, y2) and (alerta is None or c["conf"] > alerta[1]):
@@ -146,10 +149,10 @@ def main() -> None:
         todos_fps.append(fps_laco[-1])
         escrever(frame, f"FPS {np.mean(fps_laco):.1f} | inferencia {np.mean(ms_inferencia):.0f} ms", (10, 28))
         if args.rastrear and contagem:
-            resumo = "  ".join(f"{k}: {v}" for k, v in sorted(contagem.items()))
+            resumo = "  ".join(f"{NOME_NA_TELA.get(k, k)}: {v}" for k, v in sorted(contagem.items()))
             escrever(frame, f"barreiras no trajeto -> {resumo}", (10, 58), escala=0.5)
         if alerta:
-            escrever(frame, f"ATENCAO: {alerta[0]} a frente", (10, h - 20), VERMELHO, 0.9)
+            escrever(frame, f"ATENCAO: {NOME_NA_TELA.get(alerta[0], alerta[0])} a frente", (10, h - 20), VERMELHO, 0.9)
 
         if args.salvar:
             if gravador is None:

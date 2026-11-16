@@ -5,6 +5,8 @@ As imagens não ficam no Git: elas moram no projeto do Roboflow e são baixadas 
 - **Projeto no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (workspace `pedros-workspace-md4aw`, projeto `passo-firme-calcadas`)
 - **Versão usada no modelo final:** 1, `v1-sp-blindspot` (imagens de SP do Mapillary + Sidewalk obstacles), com Auto-Orient, sem Resize e sem aumento de dados no Roboflow (o aumento é feito no treino)
 
+A página do projeto no Roboflow Universe lista 28 classes porque o projeto guarda os rótulos originais das imagens clonadas do Blindspot. A versão 1, usada no treino, tem só as 3 classes do grupo (`buraco`, `desnivel`, `obstaculo`): as demais foram reagrupadas ou descartadas com *Modify Classes* ao gerar a versão (aba *Dataset* da página).
+
 Para rodar os scripts localmente, baixe a versão no formato YOLO (`yolov8`) para `dados/<nome>/` e use o `data.yaml` que vem junto. O `data.yaml.exemplo` mostra a forma esperada.
 
 ## Composição da versão 1

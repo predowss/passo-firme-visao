@@ -26,9 +26,9 @@ Trechos entre colchetes, como `[X]`, saem do notebook depois do treino. Ao termi
 
 ## Resumo
 
-Calçadas com buracos, desníveis e obstáculos derrubam e isolam justamente quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, uma CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer duas classes: dano no piso (buracos e desníveis) e obstáculo. O conjunto de dados combina 180 imagens de calçadas de São Paulo obtidas no Mapillary, capturadas a pé, anotadas segundo um guia único e divididas por sequência para evitar vazamento entre treino e teste, com 105 imagens de um dataset aberto de obstáculos de calçada, com as classes reagrupadas para o nosso problema. No teste, só com ruas de São Paulo, o modelo atingiu mAP50 de 0,17 (0,31 em obstáculos), rodando a [X] quadros por segundo na CPU de um notebook. O mesmo modelo chega a 0,89 em imagens do dataset aberto que não viu: a diferença mostra quanto dados locais importam. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e está publicado como serviço do aplicativo, que anonimiza rostos e placas e envia casos de baixa confiança para revisão humana.
+Calçadas com buracos, desníveis e obstáculos derrubam e isolam justamente quem mais depende delas: idosos e pessoas com deficiência. Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49.215 em 2025 e esperam, em média, 33 dias, sem um mapa que mostre onde estão as barreiras e quais são mais graves. Este trabalho apresenta o componente de visão computacional do Passo Firme, uma CitizenTech que mapeia, prioriza e encaminha barreiras de calçada. Treinamos de forma customizada um detector YOLO26n, a partir de pesos pré-treinados no COCO, para reconhecer três classes: buraco, desnível e obstáculo. O conjunto de dados combina 180 imagens de calçadas de São Paulo obtidas no Mapillary, capturadas a pé, anotadas segundo um guia único e divididas por sequência para evitar vazamento entre treino e teste, com 105 imagens de um dataset aberto de obstáculos de calçada, com as classes reagrupadas para o nosso problema. No teste, só com ruas de São Paulo, o modelo atingiu mAP50 de 0,16 (0,30 em obstáculos), rodando a 14,5 quadros por segundo na CPU de um notebook. Na mesma configuração, o detector chega a 0,89 em imagens do dataset aberto que não viu: a diferença mostra quanto dados locais importam. O detector funciona em tempo real com a webcam ou a câmera do celular, avisa quando uma barreira entra na faixa à frente do pedestre e está publicado como serviço do aplicativo, que anonimiza rostos e placas e envia casos de baixa confiança para revisão humana.
 
-*(250 palavras; depois de preencher, confiram se continua perto de 250.)*
+*(248 palavras; depois de preencher, confiram se continua perto de 250.)*
 
 ## Introdução
 
@@ -73,7 +73,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 ## Metodologia (passo a passo)
 
-1. **Definição das classes.** A anotação usou três classes escolhidas pelo risco para o pedestre: `buraco`, `desnivel` e `obstaculo`, com critérios no guia de anotação (`docs/guia_de_anotacao.md`). No modelo final, buraco e desnível foram juntados em `dano_no_piso` (ver passo 7).
+1. **Definição das classes.** A anotação usou três classes escolhidas pelo risco para o pedestre: `buraco`, `desnivel` e `obstaculo`, com critérios no guia de anotação (`docs/guia_de_anotacao.md`). Também testamos juntar buraco e desnível numa classe só, `dano_no_piso` (ver passo 7).
 2. **Dataset aberto.** Os datasets de calçada do Roboflow Universe que examinamos ou só anotam obstáculos, ou marcam a área da calçada em vez da barreira. Entrou um: o *Sidewalk obstacles* (Blindspot), do qual escolhemos a dedo 105 imagens com visão de pedestre, copiadas para o nosso projeto com *Clone Images*. O dataset tinha 24 classes, 15 delas com nomes numéricos (como `000000005669`) que eram rótulos trocados: abrindo as imagens, vimos que marcavam esferas de concreto, cones, balizadores, lixeiras e postes, mas também carros, pessoas, motos e bicicletas. As que marcam obstáculos foram reagrupadas em `obstaculo` (ferramenta *Modify Classes*) e as demais, descartadas; descartar todas às cegas teria deixado 193 obstáculos sem caixa. Essas imagens ficam só em treino e validação.
 
    | Dataset | Link | Licença | Imagens usadas | Classes de origem → nossas |
@@ -99,29 +99,30 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 7. **Experimentos, em duas rodadas.**
    - *Rodada 1:* (A) YOLO26n em 640 px; (A2) o mesmo em 960 px, para ver se defeitos pequenos ficavam mais visíveis; (B) YOLO26s em 640 px. A resolução maior não ajudou (mAP50 de 0,15 contra 0,16 no teste) e deixou o modelo mais lento. A validação, que misturava imagens de SP e do dataset aberto, mostrou mAP50 de 0,94 nas abertas e de 0,20 nas de SP: a escolha do modelo estava sendo puxada pelo dataset aberto.
    - *Rodada 2:* a validação passou a ter só imagens de SP; as imagens abertas que estavam nela foram reservadas (16 imagens, fora do treino e da escolha) para medir a diferença. Comparamos (A) 3 classes, (C2) 2 classes, com `buraco` e `desnivel` juntos em `dano_no_piso`, e (B) YOLO26s com 3 classes. Até 100 épocas, parada após 30 sem melhora.
-   - *Modelo final:* C2 (YOLO26n, 2 classes, 640 px), o melhor no teste em obstáculos (mAP50 0,31) e no geral (0,17), e o mais rápido.
+   - *Modelo final:* A da rodada 1 (YOLO26n, 3 classes, 640 px). No teste, os modelos das duas rodadas ficaram dentro da mesma margem para um conjunto de 31 imagens (mAP50 geral de 0,11 a 0,17; em obstáculo, 0,22 a 0,31), e juntar buraco e desnível não ajudou (0,03 em `dano_no_piso`). Por isso o critério de desempate foi o comportamento ao vivo: na câmera, o modelo A da rodada 1 detectou a mesma lixeira com confiança 0,90, de forma estável, enquanto o C2 oscilava em torno de 0,26 e confundia a quina de uma estante com obstáculo.
 8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos.
 9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (via app de transmissão na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo.
 10. **Integração ao MVP.** O serviço `POST /detectar` recebe a foto do app, roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos) e devolve as detecções e a foto anonimizada. Se a maior confiança fica abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado.
 
 ## Exemplos de resultados
 
-**Desempenho geral no teste, modelo final (YOLO26n, 2 classes)**
+**Desempenho geral no teste, modelo final (YOLO26n, 3 classes, rodada 1)**
 
 | Métrica | Valor |
 | --- | ---: |
-| Precisão | 0,27 |
-| Recall | 0,21 |
-| mAP50 | 0,17 |
-| mAP50-95 | 0,10 |
-| Velocidade na CPU do notebook (`tempo_real.py`, AMD Ryzen 5 2600) | [X] FPS (modelo de 3 classes da rodada 1: 14,3 FPS, 58 ms por quadro) |
+| Precisão | 0,48 |
+| Recall | 0,14 |
+| mAP50 | 0,16 |
+| mAP50-95 | 0,08 |
+| Velocidade na CPU do notebook (`tempo_real.py`, AMD Ryzen 5 2600, webcam) | 14,5 FPS (57 ms por quadro) |
 
 **Por classe (teste):**
 
 | Classe | Precisão | Recall | mAP50 | mAP50-95 |
 | --- | ---: | ---: | ---: | ---: |
-| obstaculo | 0,38 | 0,33 | 0,31 | 0,18 |
-| dano_no_piso | 0,16 | 0,09 | 0,03 | 0,01 |
+| obstaculo | 0,57 | 0,28 | 0,30 | 0,17 |
+| desnivel | 0,59 | 0,10 | 0,12 | 0,07 |
+| buraco | 0,27 | 0,04 | 0,06 | 0,02 |
 
 **Rodada 1, efeito da resolução (teste):** YOLO26n 640: mAP50 0,16, 11 FPS na CPU do Colab; YOLO26n 960: mAP50 0,15, 7 FPS. Aumentar a imagem não fez buraco e desnível aparecerem.
 
@@ -130,12 +131,12 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 | Modelo | Precisão | Recall | mAP50 | ms por imagem (GPU T4) |
 | --- | ---: | ---: | ---: | ---: |
 | YOLO26n, 3 classes (A) | 0,15 | 0,20 | 0,11 | 8,2 |
-| **YOLO26n, 2 classes (C2), final** | 0,27 | 0,21 | **0,17** | 4,1 |
+| YOLO26n, 2 classes (C2) | 0,27 | 0,21 | 0,17 | 4,1 |
 | YOLO26s, 3 classes (B) | 0,40 | 0,16 | 0,17 | 5,6 |
 
 O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo não é o gargalo.
 
-**Velocidade na CPU:** 72 ms por imagem na CPU do Colab (13,8 FPS) para o modelo final; no notebook do grupo, [X] FPS com a webcam.
+**Velocidade na CPU:** 90 ms por imagem na CPU do Colab (11 FPS) e 14,5 FPS no notebook do grupo com a webcam (AMD Ryzen 5 2600, sem GPU).
 
 **SP × dataset aberto (IA responsável):**
 
@@ -161,7 +162,7 @@ O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo
 
 ## Conclusão
 
-[Responder em 2 ou 3 parágrafos: o objetivo foi atingido em parte. O detector roda em tempo real (FPS) e acha obstáculos (mAP50 0,31), mas não aprendeu dano no piso (0,03) com cerca de 110 exemplos de forma irregular; a diferença entre SP (0,11) e dataset aberto (0,89) mostra que o gargalo são dados locais. Próximo passo: mais fotos de SP anotadas, em especial de dano no piso.]
+[Responder em 2 ou 3 parágrafos: o objetivo foi atingido em parte. O detector roda em tempo real (14,5 FPS) e acha obstáculos (mAP50 0,30), mas buraco (0,06) e desnível (0,12) não foram aprendidos com cerca de 110 exemplos de forma irregular, nem juntando as duas classes; a diferença entre SP (0,11) e dataset aberto (0,89) mostra que o gargalo são dados locais. Próximo passo: mais fotos de SP anotadas, em especial de dano no piso.]
 
 **Limitações.** [Ex.: dano no piso não foi aprendido (forma irregular, poucos exemplos, caixas que não batem com IoU 0,5); teste pequeno (31 imagens), então diferenças de poucos centésimos entre modelos não são significativas; sem imagens a pé da periferia no Mapillary, o teste cobre só o centro, e o desempenho em calçadas da periferia não foi medido; imagens do Mapillary capturadas por terceiros, em datas variadas, e a calçada pode ter mudado desde então; poucas fotos noturnas e de chuva; classe `desnivel` confundida com sombra; anonimização por heurística, que pode deixar escapar um rosto muito pequeno.]
 

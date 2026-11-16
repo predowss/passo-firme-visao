@@ -1,6 +1,8 @@
 """Serviço de visão do Passo Firme: recebe uma foto de calçada e devolve as barreiras.
 
-A API principal do MVP (POST /relatos) chama este serviço. Ordem do que acontece:
+Implementa o POST /detectar do contrato do MVP: a API principal (POST /relatos) chama
+este serviço quando ele está publicado. No MVP do Azure, a rota ainda devolve uma
+resposta simulada no mesmo formato. Ordem do que acontece:
   1. valida o arquivo (tamanho e se é imagem de verdade);
   2. roda o detector treinado na imagem original;
   3. anonimiza a imagem (cabeças e placas) e só essa cópia sai daqui;
@@ -50,7 +52,7 @@ modelo_coco = YOLO(MODELO_COCO) if MODELO_COCO else None
 
 app = FastAPI(
     title="Passo Firme - Visão",
-    description="Detecta barreiras em fotos de calçada (dano no piso e obstáculo, ou buraco, desnível e obstáculo, conforme o modelo) e devolve a foto anonimizada.",
+    description="Detecta barreiras em fotos de calçada (buraco, desnível e obstáculo) com um YOLO26n treinado pelo grupo e devolve a foto com cabeças e placas pixeladas. Sem detecção ou com confiança abaixo de 0,5, o relato vai para revisão humana.",
     version="1.0.0",
 )
 

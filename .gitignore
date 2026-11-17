@@ -17,3 +17,6 @@ __pycache__/
 .venv/
 .env
 .ipynb_checkpoints/
+
+# material de edição do vídeo (cartelas, cortes); o vídeo final vai para o YouTube
+video_edicao/

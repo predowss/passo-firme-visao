@@ -207,10 +207,12 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 - O código usa a biblioteca Ultralytics, distribuída sob AGPL-3.0; o serviço e o modelo `best.pt`, treinado com ela, seguem essa licença.
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs; só a cópia anonimizada sai dele, sem os metadados EXIF.
 
-## Limitações
+## Limitações e como o sistema lida com elas
 
-- **Buraco e desnível ainda não foram aprendidos** (mAP50 de 0,06 e 0,12): são formas irregulares, com cerca de 110 exemplos no treino, e juntar as duas classes não ajudou. Obstáculo é o que o modelo acha bem.
-- **Viés da fonte:** as 180 fotos de São Paulo são todas da região da Sé, de um único colaborador do Mapillary, tiradas de dia, numa mesma data. O desempenho em outros bairros, na chuva ou à noite não foi medido; nos bairros da periferia testados, não havia sequências a pé no Mapillary.
-- **Teste pequeno** (31 imagens, 71 barreiras): diferenças de poucos centésimos entre modelos não são significativas.
-- **Só reconhece o que aprendeu:** no teste ao vivo, um cachorro deitado e uma árvore no caminho não geraram alerta.
-- **Anonimização por heurística** (pessoa e veículo do COCO mais detector de rosto): um rosto ou uma placa muito pequenos podem escapar.
+| Limitação | O que o sistema já faz | Próximo passo |
+| --- | --- | --- |
+| **Buraco e desnível pouco aprendidos** (mAP50 de 0,06 e 0,12, com cerca de 110 exemplos no treino; juntar as duas classes não ajudou) | Limiar baixo (0,25) e revisão humana: foto sem detecção ou com confiança abaixo de 0,5 não é encaminhada sem uma pessoa ver. Assim, 81% das fotos de teste com barreira já chegam com ao menos uma marcação, e as outras não se perdem | Usar as fotos confirmadas pelos cidadãos no app como novos rótulos, priorizando dano no piso, com as regras de anotação revistas (guia, seção 7) |
+| **Fotos de uma só região** (Sé), de um único colaborador do Mapillary, tiradas de dia, numa mesma data | Divisão por sequência e teste só com ruas de SP, para não superestimar o desempenho; o que não foi medido (periferia, chuva, noite) está declarado | Coletar em outros bairros, com chuva e à noite, e medir por região com o `scripts/avaliar_por_regiao.py`, que já está pronto |
+| **Teste pequeno** (31 fotos, 71 barreiras) | Diferenças de poucos centésimos entre modelos não são tratadas como ganho; o desempate do modelo final foi o comportamento ao vivo | Ampliar o teste com sequências novas, que não entram no treino |
+| **Só reconhece o tipo de barreira que aprendeu** (no teste ao vivo, um cachorro deitado e uma árvore no caminho não geraram alerta) | O escopo está declarado (três classes), e no app a foto sem detecção vai para revisão humana | Acrescentar classes, como veículo na calçada, ou testar um detector de vocabulário aberto, como o YOLOE-26 da Ultralytics |
+| **Anonimização por heurística** | Duas camadas (pessoas e veículos do COCO e detector de rosto), sobre fotos que o Mapillary já borra; a foto original não é guardada | Revisão humana das fotos antes de aparecerem no mapa público |

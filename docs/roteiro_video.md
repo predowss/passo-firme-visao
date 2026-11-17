@@ -9,21 +9,49 @@ O modelo final (YOLO26n, 3 classes) acha bem **obstáculos**: postes, sacos e mo
 1. **Ao vivo, em casa:** o celular manda a câmera para o PC pelo Wi-Fi (DroidCam) e o PC detecta em tempo real, a cerca de 12 quadros por segundo. Gravado em 16/11: robô aspirador com até 0,88 e lixeira com 0,85 a 0,87, com a zona vermelha.
 2. **Na calçada:** a caminhada é filmada com a câmera normal do celular e processada depois no PC, quadro a quadro, pelo mesmo script. Sem a marca d'água do DroidCam e com imagem melhor.
 
-| Tempo | Cena | O que aparece | Fala (resumo) |
+## Montagem (cerca de 3 min 45 s)
+
+| Tempo | Cena | Imagem | Arquivo |
 | --- | --- | --- | --- |
-| 0:00–0:20 | Problema | Calçada real filmada pelo grupo: lixo no caminho, poste no meio, piso quebrado | "Em São Paulo, os pedidos de conserto de calçada passaram de 49 mil em 2025 e esperam, em média, 33 dias. Quem mais sofre são idosos e pessoas com deficiência." |
-| 0:20–0:55 | Dados e treino | Roboflow com as anotações; `results.png` e a tabela de teste no Colab | "Usamos 180 fotos de calçadas de São Paulo do Mapillary, tiradas a pé, e 105 de um dataset aberto. Anotamos buraco, desnível e obstáculo e fizemos o ajuste fino de um YOLO26n. No teste, só com ruas de São Paulo, o mAP50 foi de 0,16 no geral e 0,30 em obstáculos." |
-| 0:55–1:35 | Ao vivo (tempo real) | Tela dividida: de um lado, quem anda com o celular pela casa; do outro, a gravação da tela do PC com as caixas, o FPS e a zona ficando vermelha diante da lixeira | "O celular manda a câmera para o PC, que roda o modelo a 12 quadros por segundo, só na CPU, sem placa de vídeo. Quando um obstáculo entra na faixa à frente, a zona fica vermelha e o aviso aparece." |
-| 1:35–2:25 | Na calçada (a parte mais importante) | A caminhada processada: caixas nos obstáculos da rua, contagem de barreiras no topo, zona vermelha | "Agora, uma calçada de São Paulo. Filmamos o trajeto e o mesmo modelo processou o vídeo quadro a quadro. Cada barreira ganha um número e entra na contagem do trajeto." |
-| 2:25–2:55 | Serviço do app | `/docs` do serviço: enviar a foto do saco de lixo, ver o JSON e a foto com a cabeça e as placas pixeladas | "No app, a foto do cidadão vira detecção: três obstáculos, com a confiança de cada um. Rostos e placas saem pixelados antes de a foto ser guardada, e casos sem certeza vão para revisão humana." |
-| 2:55–3:35 | Resultados e limites | Tabela São Paulo × dataset aberto; a tabela por foto; o painel `piores_casos.png`; o cachorro deitado que passou sem alerta | "Nas fotos de teste com barreira, 81% recebem pelo menos uma detecção; as outras vão para revisão humana. Um modelo igual acerta 0,89 em fotos do dataset aberto que não viu e só 0,11 nas ruas de São Paulo: dado local faz diferença. Buraco e desnível ainda não foram aprendidos com cerca de 110 exemplos, e o modelo só reconhece o tipo de barreira que viu no treino. O próximo passo é anotar mais fotos de São Paulo." |
-| 3:35–3:50 | Fechamento | Nomes e RMs na tela | "Passo Firme: o olho que mapeia as barreiras da calçada." |
+| 0:00–0:15 | Abertura | Cartela de abertura sobre a calçada filmada | `video_edicao/cartelas/01_abertura.png` + trecho da rua |
+| 0:15–0:30 | O problema | Cartela com os números do SP156 | `video_edicao/cartelas/02_problema.png` |
+| 0:30–0:55 | Dados e treino | Cartela dos dados; depois o diagrama do fluxo | `video_edicao/cartelas/03_dados_treino.png`, `resultados/fluxo.png` |
+| 0:55–1:25 | Ao vivo, em casa | Detecção ao vivo pela câmera do celular | `ao_vivo_trecho.mp4` (27 s) |
+| 1:25–2:15 | Na calçada (a parte mais importante) | A caminhada processada; junto ou no lugar dela, as fotos de teste de SP com detecção | `demo_rua_anonimo.mp4` e/ou `video_edicao/calcadas_sp_detectado.mp4` (20 s) |
+| 2:15–2:45 | Serviço do app | O `/docs` com a resposta e a foto anonimizada | `docs_trecho.mp4` (27 s) |
+| 2:45–3:00 | Resultados | Cartela com 0,30, 81% e 12–14 FPS | `video_edicao/cartelas/04_resultados.png` |
+| 3:00–3:30 | IA responsável e limites | Cartela 0,89 × 0,11; o cachorro sem alerta; cartela dos limites | `video_edicao/cartelas/05_ia_responsavel.png`, `ao_vivo_limite_cachorro.mp4`, `video_edicao/cartelas/06_limites.png` |
+| 3:30–3:45 | Fechamento | Nomes, RMs e link do repositório | `video_edicao/cartelas/07_fechamento.png` |
 
-## Já gravado (16/11)
+## Texto da narração
 
-- `ao_vivo_trecho.mp4` (27 s): robô aspirador e lixeira detectados, zona vermelha, 11,5 a 12,7 FPS na tela. Vai na cena "Ao vivo".
-- `ao_vivo_limite_cachorro.mp4` (7 s): cachorro deitado no meio da zona, sem alerta. Vai na cena "Resultados e limites".
-- `docs_trecho.mp4` (27 s): o `/docs` com zoom na resposta e a foto anonimizada no fim. Vai na cena "Serviço do app".
+Cerca de 400 palavras: lidas com calma (uns 145 por minuto), dão 2 min 45 s de fala; o resto do tempo é imagem, com som ambiente ou música baixa. O texto serve também como legenda.
+
+**0:00–0:15 · Abertura.** "Andar a pé é o primeiro e o último trecho de qualquer deslocamento. Para um idoso ou uma pessoa com deficiência, um buraco ou um obstáculo na calçada pode significar uma queda, ou ficar em casa."
+
+**0:15–0:30 · O problema.** "Em São Paulo, os pedidos de conserto de calçada ao SP156 chegaram a 49 mil em 2025, com 33 dias de espera média. Falta saber onde estão as barreiras e quais são mais graves."
+
+**0:30–0:55 · Dados e treino.** "O Passo Firme usa visão computacional para isso. Treinamos um YOLO26n sob medida, partindo dos pesos do COCO, com 180 fotos de calçadas de São Paulo tiradas a pé e 105 imagens de um dataset aberto. Anotamos três classes, buraco, desnível e obstáculo, e separamos o teste por sequência, só com ruas de São Paulo."
+
+**0:55–1:25 · Ao vivo.** "Aqui, o celular manda a câmera para o computador pelo Wi-Fi, e o modelo roda em tempo real, a 12 quadros por segundo, só na CPU, sem placa de vídeo. Quando uma barreira entra na faixa à frente de quem anda, a zona fica vermelha e o aviso aparece. Cada barreira ganha um número e entra na contagem do trajeto."
+
+**1:25–2:15 · Na calçada.** *Com a caminhada:* "Agora, uma calçada de São Paulo. Filmamos o trajeto, e o mesmo modelo processou o vídeo quadro a quadro. Sacos de lixo, lixeiras e postes no caminho são marcados como obstáculos, e a zona fica vermelha quando eles entram na faixa à frente. O contador no alto soma as barreiras distintas do trajeto: é essa contagem que vira o mapa de prioridades do Passo Firme." *Com o plano B:* "Estas são fotos de calçadas do centro de São Paulo que o modelo nunca viu no treino. Ele marca os obstáculos, como sacos de lixo, cones e entulho, e às vezes erra: barreiras pequenas e distantes e defeitos do piso ainda escapam."
+
+**2:15–2:45 · Serviço do app.** "No aplicativo, a foto do cidadão vai para o serviço de detecção. Ele endireita a foto, devolve cada barreira com a confiança, aqui três obstáculos, e pixela rostos e placas antes de a foto ser guardada. Se o modelo não tiver certeza, uma pessoa revisa antes de encaminhar."
+
+**2:45–3:00 · Resultados.** "No teste, o modelo chega a 0,30 de mAP50 em obstáculos, e 81% das fotos com barreira recebem pelo menos uma detecção. As outras vão para revisão humana."
+
+**3:00–3:30 · IA responsável e limites.** "Um modelo igual acerta 0,89 em imagens do dataset aberto e só 0,11 nas ruas de São Paulo: dado local faz diferença. E ele só reconhece o que viu no treino: este cachorro deitado no caminho passou sem alerta. Buraco e desnível ainda precisam de mais exemplos."
+
+**3:30–3:45 · Fechamento.** "O próximo passo é usar as fotos dos próprios cidadãos como novos exemplos, de vários bairros. Passo Firme: o olho que mapeia as barreiras da calçada."
+
+## Já gravado e pronto (16/11)
+
+- `ao_vivo_trecho.mp4` (27 s): robô aspirador e lixeira detectados, zona vermelha, 11,5 a 12,7 FPS na tela.
+- `ao_vivo_limite_cachorro.mp4` (7 s): cachorro deitado no meio da zona, sem alerta.
+- `docs_trecho.mp4` (27 s): o `/docs` com zoom na resposta e a foto anonimizada no fim.
+- `video_edicao/cartelas/`: as 7 cartelas em 1920×1080 (abertura, problema, dados e treino, resultados, IA responsável, limites, fechamento).
+- Plano B da calçada, já processado: `video_edicao/calcadas_sp_detectado.mp4` (20 s), com 8 fotos de teste de SP que o modelo nunca viu: saco de lixo (0,90) e cone com a zona vermelha, carroça, postes, "buraco à frente" em piso danificado e, no fim, um erro honesto (lixo miúdo sobre pedra portuguesa, sem detecção). O vídeo completo com as 31 fotos está em `resultados/sp_teste_detectado.mp4`. Antes de publicar, passem pelo `anonimizar_video.py`.
 - Na gravação ao vivo completa, evitem o começo e o trecho de 1:45 a 1:58 (brinquedo de personagem de desenho) e o falso alerta na quina da porta (~1:40).
 
 ## Parte 1: ao vivo, em casa

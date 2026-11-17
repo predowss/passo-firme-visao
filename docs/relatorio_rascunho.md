@@ -205,16 +205,17 @@ Buraco (mAP50 de 0,06) e desnível (0,12) não foram aprendidos. São formas irr
 
 A maior lição é sobre dados. Um modelo igual chega a 0,89 em imagens do dataset aberto e a 0,11 nas ruas de São Paulo, e a primeira rodada mostrou que uma validação misturada escolhia o modelo pelo dataset errado. Um detector para calçadas brasileiras precisa de fotos brasileiras, de vários bairros, colaboradores, horários e climas.
 
-**Limitações.**
+**Limitações e como o sistema lida com elas.**
 
-- Buraco e desnível não foram aprendidos com o volume atual de exemplos.
-- Teste pequeno (31 imagens e 71 barreiras): diferenças de poucos centésimos entre modelos não são significativas.
-- Viés da fonte: as 180 fotos de SP são da região da Sé, de um único colaborador do Mapillary, tiradas de dia, numa mesma data. O desempenho em outros bairros, na periferia (onde não havia sequências a pé), na chuva ou à noite não foi medido.
-- As fotos do Mapillary são de 2025 e a calçada pode ter mudado desde então.
-- O modelo só alerta para os tipos de barreira que aprendeu: um cachorro deitado e uma árvore no caminho passaram sem alerta no teste ao vivo.
-- A anonimização é por heurística (pessoas e veículos do COCO e detector de rosto) e pode deixar escapar um rosto ou uma placa muito pequenos.
+| Limitação | O que o sistema já faz | Próximo passo |
+| --- | --- | --- |
+| **Buraco e desnível pouco aprendidos** (mAP50 de 0,06 e 0,12, com cerca de 110 exemplos no treino; juntar as duas classes não ajudou) | Limiar baixo (0,25) e revisão humana: foto sem detecção ou com confiança abaixo de 0,5 não é encaminhada sem uma pessoa ver. Assim, 81% das fotos de teste com barreira já chegam com ao menos uma marcação, e as outras não se perdem | Usar as fotos confirmadas pelos cidadãos no app como novos rótulos, priorizando dano no piso, com as regras de anotação revistas (guia, seção 7) |
+| **Fotos de uma só região** (Sé), de um único colaborador do Mapillary, tiradas de dia, numa mesma data | Divisão por sequência e teste só com ruas de SP, para não superestimar o desempenho; o que não foi medido (periferia, chuva, noite) está declarado | Coletar em outros bairros, com chuva e à noite, e medir por região com o `scripts/avaliar_por_regiao.py`, que já está pronto |
+| **Teste pequeno** (31 fotos, 71 barreiras) | Diferenças de poucos centésimos entre modelos não são tratadas como ganho; o desempate do modelo final foi o comportamento ao vivo | Ampliar o teste com sequências novas, que não entram no treino |
+| **Só reconhece o tipo de barreira que aprendeu** (no teste ao vivo, um cachorro deitado e uma árvore no caminho não geraram alerta) | O escopo está declarado (três classes), e no app a foto sem detecção vai para revisão humana | Acrescentar classes, como veículo na calçada, ou testar um detector de vocabulário aberto, como o YOLOE-26 da Ultralytics |
+| **Anonimização por heurística** | Duas camadas (pessoas e veículos do COCO e detector de rosto), sobre fotos que o Mapillary já borra; a foto original não é guardada | Revisão humana das fotos antes de aparecerem no mapa público |
 
-**Próximos passos.** Usar as fotos enviadas pelos próprios cidadãos, confirmadas no app, como novos rótulos, priorizando buracos e desníveis e bairros da periferia; padronizar a anotação de dano no piso (uma caixa por área) ou passar a segmentação; recortar a imagem em blocos para objetos pequenos; estimar o tamanho da barreira para priorizar o conserto; rodar o modelo no próprio celular, sem internet; e usar a câmera do robô vistoriador do Maker Lab.
+**Outros próximos passos.** Estimar o tamanho da barreira para priorizar o conserto, rodar o modelo no próprio celular, sem internet, e usar a câmera do robô vistoriador do Maker Lab.
 
 ## Referências
 

@@ -30,16 +30,16 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 | Cidadão e território | Idosos, pessoas com deficiência e pedestres que dependem de andar a pé, num distrito piloto de São Paulo |
 | Problema, em uma frase | Buracos, degraus e obstáculos nas calçadas derrubam e isolam justamente quem mais depende delas, e ninguém tem a visão do todo para priorizar o conserto |
 | Proposta de valor | Para o cidadão, de graça: fotografou, a IA identifica a barreira, explica quem é o responsável pela lei e encaminha. Para quem conserta: mapa priorizado por risco e população afetada, com prova em foto |
-| Arquitetura: componentes | App web acessível · API FastAPI + PostgreSQL · **detector YOLO (este repositório)** · assistente da lei (LLM local + RAG) · pipeline Airflow → Databricks · robô de triagem (RPA) · robô vistoriador (Maker Lab) · containers no Azure com Terraform e GitHub Actions |
-| Fontes de dados | SP156 (dados abertos da Prefeitura) · Open-Meteo (chuva) · API do IBGE (população) · relatos do app (foto + GPS) · leituras do robô · **imagens de calçadas de São Paulo do Mapillary e o dataset aberto *Sidewalk obstacles* (este repositório)** · Lei 15.442/2011, Decreto 59.671/2020, Lei 13.146/2015 e Carta de Serviços do SP156 |
+| Arquitetura: componentes | App web acessível (planejado; no MVP atual, a entrada é a API) · API FastAPI + PostgreSQL · **detector YOLO (este repositório)** · assistente da lei (LLM local + RAG) · pipeline Airflow → Databricks · robô de triagem (RPA) · robô vistoriador (Maker Lab) · containers no Azure com Terraform e GitHub Actions |
+| Fontes de dados | SP156 (dados abertos da Prefeitura) · Open-Meteo (chuva) · API do IBGE (população) · relatos dos cidadãos (foto + GPS) · leituras do robô · **imagens de calçadas de São Paulo do Mapillary e o dataset aberto *Sidewalk obstacles* (este repositório)** · Lei 15.442/2011, Decreto 59.671/2020, Lei 13.146/2015 e Carta de Serviços do SP156 |
 | Modelos de IA utilizados | **YOLO26n treinado para barreiras de calçada (este repositório)** · YOLO26n do COCO para anonimizar pessoas e placas · LLM aberto pequeno com RAG e LoRA · embeddings multilíngues · TinyML no robô |
 | URL do MVP e repositório | MVP: https://ca-passofirme-api.lemonfield-b3da2f2c.brazilsouth.azurecontainerapps.io/docs · repositório principal: https://github.com/predowss/passo-firme · este repositório: https://github.com/predowss/passo-firme-visao |
-| Indicadores de impacto | Barreiras mapeadas · % resolvidas · tempo médio até o conserto (antes, pelo histórico do SP156, e depois) · idosos e pessoas com deficiência usando o app · metros de calçada vistoriados pelo robô |
+| Indicadores de impacto | Barreiras mapeadas · % resolvidas · tempo médio até o conserto (antes, pelo histórico do SP156, e depois) · idosos e pessoas com deficiência usando o Passo Firme · metros de calçada vistoriados pelo robô |
 | ODS conectados | 11 (metas 11.2 e 11.7) · 10 (meta 10.2) · 3 · 9 (meta 9.1) |
 
 ## O papel da visão no Passo Firme
 
-O cidadão fotografa a calçada no app. A API principal manda a foto para `POST /detectar`, que devolve as barreiras (classe, confiança e caixa, os mesmos campos da tabela `deteccao` do banco do MVP) e a foto com cabeças e placas pixeladas. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. Fotos de celular são endireitadas pela orientação gravada no EXIF antes da detecção, e a foto devolvida sai sem metadados (inclusive o GPS).
+A API do Passo Firme recebe a foto da calçada enviada pelo cidadão (`POST /relatos`) e a manda para o `POST /detectar` deste repositório, que devolve as barreiras (classe, confiança e caixa, os mesmos campos da tabela `deteccao` do banco do MVP) e a foto com cabeças e placas pixeladas. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. Fotos de celular são endireitadas pela orientação gravada no EXIF antes da detecção, e a foto devolvida sai sem metadados (inclusive o GPS).
 
 **Situação da integração:** este repositório entrega o serviço pronto, com Dockerfile. No MVP publicado no Azure, a rota `/detectar` ainda devolve uma resposta simulada no mesmo formato; ligar o detector real é publicar este container e apontar a API principal para ele.
 
@@ -48,6 +48,13 @@ O mesmo modelo roda em tempo real (`src/tempo_real.py`) sobre a webcam, a câmer
 ![Fluxo do componente de visão: dados e treino, e uso do modelo no tempo real e no serviço /detectar](resultados/fluxo.png)
 
 ## Resultados
+
+**O que funciona:**
+- **Obstáculos, o ponto forte:** mAP50 de 0,30 no teste e detecções de 0,85 a 0,90 ao vivo (lixeira, robô aspirador).
+- **Na rua, numa cidade fora do treino:** no Centro de Osasco, o modelo marcou cones, cadeiras, sacos de lixo, vasos e postes no caminho, com a zona de alerta acionada.
+- **Por foto:** 81% das fotos de teste com barreira recebem ao menos uma detecção; com recortes no `/detectar`, todas as 26.
+- **Tempo real sem placa de vídeo:** 12 a 14 FPS num PC comum.
+- **Serviço pronto para plugar no MVP:** `/detectar` com Dockerfile, anonimização de rostos e placas e revisão humana dos casos incertos.
 
 Modelo final: YOLO26n, 3 classes, 640 px. Conjunto de teste com 31 fotos de calçadas de São Paulo, de sequências que o modelo nunca viu.
 
@@ -91,9 +98,9 @@ Precisão e recall por caixa com IoU de 0,5. Com o limiar de 0,25 do serviço, 4
 
 \* Inclui o aquecimento da GPU na primeira chamada; o E4, com um modelo do mesmo tamanho, levou 26 ms.
 
-Ler a foto maior ou treinar com 38 imagens a mais não ajudou: o gargalo são os dados. Só os recortes ganharam, achando barreiras pequenas, mas com precisão menor e cerca de 3 vezes o tempo. Por isso viraram uma opção do `/detectar` (`recortes=true`), onde uma pessoa revisa os casos incertos, e ficaram fora do tempo real. O E0 reproduz a precisão, o recall e a contagem por foto do notebook 03; seu mAP50 (0,175) fica acima do 0,159 do Ultralytics por detalhes da conta, por isso cada experimento é comparado com o E0.
+**Os recortes foram o ganho:** recall de 0,21 para 0,32 e todas as 26 fotos com barreira com ao menos uma detecção, sem mais alarmes falsos nas fotos sem barreira. Custam cerca de 3 vezes o tempo e alguma precisão, por isso viraram uma opção do `/detectar` (`recortes=true`) e ficaram fora do tempo real. Ler a foto maior e treinar com a validação junto não ajudaram: o próximo ganho virá de mais dados. O E0 reproduz o notebook 03 (seu mAP50 de 0,175 difere do 0,159 do Ultralytics por detalhes da conta).
 
-**Na rua (17/11).** Uma caminhada de 3 minutos no Centro de Osasco, na Grande São Paulo (cidade fora do treino, que só tem fotos da Sé), filmada com o celular e processada no PC, quadro a quadro, a 12 ou 13 FPS: o modelo marcou cones, cadeiras de plástico, sacos de lixo, vasos e postes no caminho, e a zona ficou vermelha quando eles entraram na faixa à frente. Também errou: tomou uma tampa de bueiro por buraco, enquanto a caixa de inspeção aberta ao lado só foi marcada no fim, já colada, em poucos quadros.
+**Na rua (17/11).** Uma caminhada de 3 minutos no Centro de Osasco, na Grande São Paulo (cidade fora do treino, que só tem fotos da Sé), filmada com o celular e processada no PC, quadro a quadro, a 12 ou 13 FPS: o modelo marcou cones, cadeiras de plástico, sacos de lixo, vasos e postes no caminho, e a zona ficou vermelha quando eles entraram na faixa à frente. O erro mais visível foi uma tampa de bueiro tomada por buraco (à direita).
 
 <p><img src="resultados/rua_alerta.jpg" width="49%" alt="Na rua: cadeiras de plástico na faixa à frente acionam o alerta"> <img src="resultados/rua_bueiro.jpg" width="49%" alt="Erro na rua: tampa de bueiro marcada como buraco, caixa aberta ao lado sem marcação"></p>
 
@@ -233,10 +240,9 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 
 ## Limitações e como o sistema lida com elas
 
-| Limitação | O que o sistema já faz | Próximo passo |
-| --- | --- | --- |
-| **Buraco e desnível pouco aprendidos** (mAP50 de 0,06 e 0,12, com cerca de 110 exemplos no treino; juntar as duas classes, ler a foto maior e treinar com a validação junto não ajudaram; na rua, uma tampa de bueiro virou buraco) | Limiar baixo (0,25) e revisão humana: foto sem detecção ou com confiança abaixo de 0,5 não é encaminhada sem uma pessoa ver. Assim, 81% das fotos de teste com barreira já chegam com ao menos uma marcação, e as outras não se perdem. No `/detectar`, a opção de recortes sobe o recall de 0,21 para 0,32 | Usar as fotos confirmadas pelos cidadãos no app como novos rótulos, priorizando dano no piso, com as regras de anotação revistas (guia, seção 7) |
-| **Fotos de uma só região** (Sé), de um único colaborador do Mapillary, tiradas de dia, numa mesma data | Divisão por sequência e teste só com ruas de SP, para não superestimar o desempenho; o que não foi medido (periferia, chuva, noite) está declarado. A caminhada no Centro de Osasco, fora do treino, deu uma primeira amostra de outra região, só qualitativa | Coletar em outros bairros, com chuva e à noite, e medir por região com o `scripts/avaliar_por_regiao.py`, que já está pronto |
-| **Teste pequeno** (31 fotos, 71 barreiras) | Diferenças de poucos centésimos entre modelos não são tratadas como ganho; o desempate do modelo final foi o comportamento ao vivo | Ampliar o teste com sequências novas, que não entram no treino |
-| **Só reconhece o tipo de barreira que aprendeu** (no teste ao vivo, um cachorro deitado e uma árvore no caminho não geraram alerta) | O escopo está declarado (três classes), e no app a foto sem detecção vai para revisão humana | Acrescentar classes, como veículo na calçada, ou testar um detector de vocabulário aberto, como o YOLOE-26 da Ultralytics |
-| **Anonimização por heurística** | Duas camadas (pessoas e veículos do COCO e detector de rosto), sobre fotos que o Mapillary já borra; a foto original não é guardada | Revisão humana das fotos antes de aparecerem no mapa público |
+| Limitação | Como o sistema lida e o próximo passo |
+| --- | --- |
+| Buraco e desnível com poucos exemplos (mAP50 de 0,06 e 0,12) | Revisão humana abaixo de 0,5 de confiança e recortes no `/detectar`; as fotos dos relatos, depois de revisadas, viram novos rótulos |
+| Fotos de treino de uma só região (Sé), de dia | Teste separado por sequência; Osasco, fora do treino, como primeira amostra; próximo passo: outros bairros, chuva e noite |
+| Teste pequeno (31 fotos) | Diferenças de poucos centésimos não são tratadas como ganho |
+| Só reconhece as três classes treinadas | O que fica sem detecção vai para revisão humana; próximo passo: mais classes ou um detector de vocabulário aberto (YOLOE-26) |

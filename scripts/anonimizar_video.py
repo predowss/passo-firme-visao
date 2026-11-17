@@ -6,7 +6,9 @@ filmado pelo celular) e esconde cabeças de pessoas e placas de veículos com a 
 função usada pela API (`src/anonimizar.py`).
 
 Uso (da raiz do repositório):
-  py scripts/anonimizar_video.py resultados/demo.mp4 resultados/demo_anonimo.mp4
+  python scripts/anonimizar_video.py resultados/demo.mp4 resultados/demo_anonimo.mp4
+
+O vídeo de saída não leva áudio (o OpenCV lê só a imagem).
 
 Opções:
   --modelo-coco  YOLO do COCO que acha pessoas e veículos (padrão: yolo26n.pt)

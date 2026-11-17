@@ -43,7 +43,7 @@ O componente de visão enxerga a calçada e transforma o que vê em informação
 
 | Entrada | Como funciona | Código |
 | --- | --- | --- |
-| Câmera ao vivo | Webcam do PC ou câmera do celular pelo Wi-Fi (DroidCam). Detecção em tempo real, a 12–14 FPS, com zona de alerta à frente do pedestre e contagem das barreiras do trajeto | `src/tempo_real.py` |
+| Câmera ao vivo | Webcam do PC ou câmera do celular pelo Wi-Fi (DroidCam). Detecção em tempo real, de 12 a 14,5 FPS, com zona de alerta à frente do pedestre e contagem das barreiras do trajeto | `src/tempo_real.py` |
 | Vídeo gravado | Uma caminhada filmada é processada quadro a quadro pelo mesmo script, como a do Centro de Osasco | `src/tempo_real.py --fonte video.mp4` |
 | Foto | `POST /detectar` recebe a foto, endireita pela orientação do EXIF e devolve as barreiras em JSON (classe, confiança e caixa, os campos da tabela `deteccao` do MVP) e a foto sem metadados, com rostos e placas pixelados. Sem detecção ou abaixo de 0,5 de confiança, vai para revisão humana | `src/api.py` |
 
@@ -62,10 +62,11 @@ No desenho do Passo Firme, a foto do cidadão chega à API do MVP (`POST /relato
 ## Resultados
 
 **O que funciona:**
+
 - **Obstáculos, o ponto forte:** mAP50 de 0,30 no teste e detecções de 0,85 a 0,90 ao vivo (lixeira, robô aspirador).
 - **Na rua, numa cidade fora do treino:** no Centro de Osasco, o modelo marcou cones, cadeiras, sacos de lixo, vasos e postes no caminho, com a zona de alerta acionada.
 - **Por foto:** 81% das fotos de teste com barreira recebem ao menos uma detecção; com recortes no `/detectar`, todas as 26.
-- **Tempo real sem placa de vídeo:** 12 a 14 FPS num PC comum.
+- **Tempo real sem placa de vídeo:** 12 a 14,5 FPS num PC comum, com caixas, zona de alerta e aviso desenhados sobre a imagem da câmera, como uma camada simples de realidade aumentada.
 - **Serviço pronto para plugar no MVP:** `/detectar` com Dockerfile, anonimização de rostos e placas e revisão humana dos casos incertos.
 
 Modelo final: YOLO26n, 3 classes, 640 px. Conjunto de teste com 31 fotos de calçadas de São Paulo, de sequências que o modelo nunca viu.
@@ -122,7 +123,7 @@ Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 
 
 ## Como reproduzir
 
-Os comandos usam `python`; no Windows, use `py`. Testado com Python 3.14 no Windows (PC do grupo, AMD Ryzen 5 2600, sem placa de vídeo) e com Python 3.13 e Ultralytics 8.4.214 no Colab.
+Os comandos usam `python`; no Windows, use `py`. Testado com Python 3.14 no Windows (PC do grupo, AMD Ryzen 5 2600, sem placa de vídeo) e com Python 3.13 e Ultralytics 8.4.214 e 8.4.215 no Colab.
 
 ### 1. Dataset
 
@@ -198,7 +199,7 @@ Resposta real para a foto `sp_se_1542016304509302.jpg` do teste (saco de lixo, c
 }
 ```
 
-A primeira chamada leva alguns segundos porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64. Com `recortes=true`, o detector lê também quatro pedaços da foto e junta as caixas: no teste, o recall subiu de 0,21 para 0,32 e a precisão caiu de 0,35 para 0,25 (notebook 04). Vem desligado para manter a resposta acima:
+A primeira chamada leva alguns segundos porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64. Com `recortes=true`, o detector lê também quatro pedaços da foto e junta as caixas (a ideia da técnica SAHI): no teste, o recall subiu de 0,21 para 0,32 e a precisão caiu de 0,35 para 0,25 (notebook 04). Vem desligado para manter a resposta acima:
 
 ```bash
 curl -F "foto=@calcada.jpg" "http://localhost:8001/detectar?devolver_imagem=false&recortes=true"

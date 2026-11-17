@@ -44,7 +44,7 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 **Detecção de objetos.** Um detector recebe uma imagem e devolve caixas delimitadoras, cada uma com uma classe e uma confiança. Diferente da classificação, que diz só "há um buraco nesta foto", a detecção diz onde está cada barreira, o que permite contar, localizar e alertar.
 
-**YOLO26 (Ultralytics).** A família YOLO (*You Only Look Once*) detecta em uma única passada pela rede, o que a torna rápida o bastante para vídeo. A rede tem três partes: o *backbone* extrai características visuais (bordas, texturas, formas), o *neck* combina essas características em várias escalas, para achar tanto um buraco grande perto quanto um obstáculo pequeno ao fundo, e a *head* prevê as caixas e as classes. O YOLO26, anunciado em setembro de 2025 e lançado pela Ultralytics em janeiro de 2026 (biblioteca 8.4), foi desenhado para rodar em dispositivos de borda: dispensa a etapa de supressão de não máximos (NMS) na inferência e a *Distribution Focal Loss*, o que simplifica a implantação e acelera a CPU. Usamos a versão nano (YOLO26n, 2,4 milhões de parâmetros) como modelo principal e a small (YOLO26s, 9,5 milhões) para comparação.
+**YOLO26 (Ultralytics).** A família YOLO (*You Only Look Once*) detecta em uma única passada pela rede, o que a torna rápida o bastante para vídeo. A rede tem três partes: o *backbone* extrai características visuais (bordas, texturas, formas), o *neck* combina essas características em várias escalas, para achar tanto um buraco grande perto quanto um obstáculo pequeno ao fundo, e a *head* prevê as caixas e as classes. O YOLO26, anunciado em setembro de 2025 e lançado pela Ultralytics em janeiro de 2026 (biblioteca 8.4), foi desenhado para rodar em dispositivos de borda: dispensa a etapa de supressão de não máximos (NMS) na inferência e a *Distribution Focal Loss*, o que simplifica a implantação e acelera a inferência na CPU. Usamos a versão nano (YOLO26n, 2,4 milhões de parâmetros) como modelo principal e a small (YOLO26s, 9,5 milhões) para comparação.
 
 **Transfer learning.** Em vez de treinar do zero, partimos dos pesos aprendidos no COCO (330 mil imagens, 80 classes do dia a dia). A rede já sabe reconhecer bordas, sombras e objetos; o ajuste fino ensina as nossas classes com centenas de imagens, e não milhões.
 
@@ -56,15 +56,16 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 **OpenCV.** Biblioteca de visão usada para ler a câmera ou o vídeo, desenhar caixas, a zona de caminhada e os avisos, e pixelar as regiões sensíveis da imagem.
 
-**Rastreamento.** O Ultralytics associa as caixas de um quadro ao seguinte com o rastreador BoT-SORT, o padrão da biblioteca. Cada barreira recebe um número que se mantém enquanto ela está à vista, o que permite contar as barreiras distintas de um trajeto.
+**Rastreamento.** O Ultralytics associa as caixas de um quadro ao seguinte com o rastreador BoT-SORT, o padrão da biblioteca. Cada barreira recebe um número que se mantém enquanto ela está à vista, o que permite contar as barreiras distintas de um trajeto. Se uma barreira sai de vista e volta, pode ganhar um número novo; por isso, a contagem é uma estimativa.
 
 **DroidCam.** Aplicativo que transforma o celular em câmera de rede: o PC lê o vídeo pelo Wi-Fi num endereço HTTP, como se fosse uma webcam.
 
-**Inferência em recortes (*tiles*).** A foto é dividida em quatro pedaços com 20% de sobreposição, e cada um é lido a 640 px junto com a foto inteira; as caixas repetidas da mesma classe são juntadas. Num pedaço, um objeto pequeno ocupa mais pixels e fica mais fácil de achar.
+**Inferência em recortes (*tiles*).** A foto é dividida em quatro pedaços com 20% de sobreposição, e cada um é lido a 640 px junto com a foto inteira; as caixas repetidas da mesma classe são juntadas. Num pedaço, um objeto pequeno ocupa mais pixels e fica mais fácil de achar. É a ideia da técnica SAHI (*Slicing Aided Hyper Inference*), feita aqui com o próprio Ultralytics, sem biblioteca extra.
 
 **FastAPI e Docker.** O detector roda como um serviço HTTP (`POST /detectar`) empacotado num container, no formato que a API principal do Passo Firme espera (classe, confiança e caixa de cada barreira).
 
 **Métricas.**
+
 - *IoU (Intersection over Union):* sobreposição entre a caixa prevista e a anotada; acima de 0,5 conta como acerto.
 - *Precisão:* das caixas que o modelo desenhou, a fração correta.
 - *Recall:* das barreiras existentes, a fração encontrada. É a métrica mais importante para quem anda: um buraco não detectado custa mais que um falso alarme.
@@ -111,13 +112,13 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    - *Rodada 2:* a validação passou a ter só imagens de SP; as imagens abertas que estavam nela foram reservadas (16 imagens, fora do treino e da escolha) para medir a diferença. Comparamos (A) 3 classes, (C2) 2 classes, com `buraco` e `desnivel` juntos em `dano_no_piso`, e (B) YOLO26s com 3 classes. Até 100 épocas, parada após 30 sem melhora.
    - *Modelo final:* A da rodada 1 (YOLO26n, 3 classes, 640 px). No teste, os modelos das duas rodadas ficaram dentro da mesma margem para um conjunto de 31 imagens (mAP50 geral de 0,11 a 0,17; em obstáculo, 0,22 a 0,31), e juntar buraco e desnível não ajudou (0,03 em `dano_no_piso`). Por isso o critério de desempate foi o comportamento ao vivo: na câmera, o modelo A da rodada 1 detectou a mesma lixeira com confiança de 0,89 a 0,90, de forma estável, enquanto o C2 oscilava em torno de 0,26 e confundia a quina de uma estante com obstáculo.
 8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; precisão e recall em quatro limiares de confiança (0,10, 0,25, 0,35 e 0,50), com IoU de 0,5 e de 0,3, e por foto (`notebooks/03_limiar_confianca_colab.ipynb`); desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos. Por fim, quatro tentativas de melhorar sem anotar fotos novas (ler a foto em 960 e 1280 px, dividi-la em recortes e treinar de novo com a validação junto), medidas com a mesma conta (`notebooks/04_melhorias_sem_novos_dados_colab.ipynb`).
-9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Em fonte ao vivo, uma thread lê a câmera o tempo todo e o modelo recebe sempre o quadro mais recente: como a câmera produz mais quadros do que o modelo processa na CPU, os quadros velhos são descartados em vez de formar fila, e o atraso entre o mundo e a tela não cresce com o tempo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
+9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Caixas, zona e aviso são desenhados sobre a própria imagem da câmera, como uma camada simples de realidade aumentada. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Em fonte ao vivo, uma thread lê a câmera o tempo todo e o modelo recebe sempre o quadro mais recente: como a câmera produz mais quadros do que o modelo processa na CPU, os quadros velhos são descartados em vez de formar fila, e o atraso entre o mundo e a tela não cresce com o tempo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
 10. **Serviço para o MVP.** O serviço `POST /detectar` recebe uma foto (no desenho do Passo Firme, a que o cidadão envia à API do MVP pelo `POST /relatos`), endireita a imagem pela orientação gravada no EXIF (fotos de celular costumam chegar deitadas), roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada, recodificada sem metadados (inclusive a localização do GPS); a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container. Uma opção, `recortes=true`, faz o detector ler também quatro pedaços da foto, o que acha mais barreiras pequenas ao custo de mais falsos alarmes (ver Resultados).
 11. **Testes em campo.** Ao vivo em casa, com a câmera do celular (16/11), e numa caminhada de 3 minutos no Centro de Osasco, cidade fora do treino (17/11), com o vídeo processado quadro a quadro e anonimizado antes de publicar.
 
 ## Exemplos de resultados
 
-**O que funciona.** Obstáculos, a barreira mais comum nas calçadas fotografadas, são o ponto forte: mAP50 de 0,30 no teste, detecções de 0,85 a 0,90 ao vivo e, numa caminhada no Centro de Osasco, cidade fora do treino, cones, cadeiras, sacos de lixo, vasos e postes marcados no caminho. Com o limiar do serviço, 81% das fotos de teste com barreira recebem ao menos uma detecção, e dividir a foto em recortes fez o modelo achar cerca de 50% mais barreiras. Tudo roda a 12 a 14 FPS num PC sem placa de vídeo. As tabelas abaixo detalham esses números.
+**O que funciona.** Obstáculos, a barreira mais comum nas calçadas fotografadas, são o ponto forte: mAP50 de 0,30 no teste, detecções de 0,85 a 0,90 ao vivo e, numa caminhada no Centro de Osasco, cidade fora do treino, cones, cadeiras, sacos de lixo, vasos e postes marcados no caminho. Com o limiar do serviço, 81% das fotos de teste com barreira recebem ao menos uma detecção, e dividir a foto em recortes fez o modelo achar cerca de 50% mais barreiras. Tudo roda entre 12 e 14,5 FPS num PC sem placa de vídeo. As tabelas abaixo detalham esses números.
 
 **Desempenho geral no teste, modelo final (YOLO26n, 3 classes, rodada 1)**
 
@@ -127,8 +128,8 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 | Recall | 0,14 |
 | mAP50 | 0,16 |
 | mAP50-95 | 0,08 |
-| Velocidade num PC de mesa sem placa de vídeo (AMD Ryzen 5 2600), `tempo_real.py` com a webcam | 14,5 FPS (57 ms por quadro) |
-| Mesma máquina, câmera do celular pelo Wi-Fi | cerca de 12 FPS (inferência de 54 a 62 ms) |
+| Velocidade num PC de mesa sem placa de vídeo (AMD Ryzen 5 2600), `tempo_real.py` com a webcam | 14,5 FPS de média (inferência de cerca de 57 ms) |
+| Mesma máquina, câmera do celular pelo Wi-Fi | cerca de 12 FPS (inferência de 54 a 65 ms) |
 
 **Por classe (teste):**
 
@@ -162,15 +163,13 @@ Com o limiar de 0,25 do serviço, 4 em cada 5 fotos com barreira chegam com pelo
 
 **Rodada 2, comparação de modelos (teste):**
 
-| Modelo | Precisão | Recall | mAP50 | ms por imagem (GPU T4) |
-| --- | ---: | ---: | ---: | ---: |
-| YOLO26n, 3 classes (A) | 0,15 | 0,20 | 0,11 | 8,2 |
-| YOLO26n, 2 classes (C2) | 0,27 | 0,21 | 0,17 | 4,1 |
-| YOLO26s, 3 classes (B) | 0,40 | 0,16 | 0,17 | 5,6 |
+| Modelo | Precisão | Recall | mAP50 |
+| --- | ---: | ---: | ---: |
+| YOLO26n, 3 classes (A) | 0,15 | 0,20 | 0,11 |
+| YOLO26n, 2 classes (C2) | 0,27 | 0,21 | 0,17 |
+| YOLO26s, 3 classes (B) | 0,40 | 0,16 | 0,17 |
 
-O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo não é o gargalo.
-
-**Velocidade na CPU:** 90 ms por imagem na CPU do Colab (11 FPS) e 14,5 FPS no PC do grupo com a webcam (AMD Ryzen 5 2600, sem placa de vídeo).
+O YOLO26s ficou na mesma margem do nano (0,17 contra 0,16 do modelo final) com quase quatro vezes mais cálculo por imagem (20,8 contra 5,4 GFLOPs): com tão poucas imagens, o tamanho do modelo não é o gargalo.
 
 **Melhorias sem anotar fotos novas (teste, notebook 04).** As quatro colunas de classe são mAP50; precisão, recall e contagem por foto usam confiança mínima de 0,25 e IoU de 0,5.
 
@@ -199,6 +198,7 @@ O E0 reproduz a precisão, o recall e a contagem por foto do notebook 03, o que 
 **Teste na rua (17/11).** Filmamos uma caminhada de 3 minutos em calçadas do Centro de Osasco, na Grande São Paulo, com a câmera do celular. É uma cidade que não aparece no treino: todas as fotos de São Paulo do dataset são da Sé. Processado no PC do grupo, quadro a quadro, a 12 ou 13 FPS, com o mesmo `tempo_real.py`, o vídeo mostra o modelo marcando cones, cadeiras de plástico, sacos de lixo, vasos e postes no caminho, com confiança de 0,6 a 0,9, e a zona ficando vermelha quando eles entram na faixa à frente (Figura 8). Os erros foram de buraco e de distância: uma tampa de bueiro foi tomada por buraco, e sacos de lixo grandes, colados na câmera, ficaram sem marcação; numa foto assim enviada ao `/detectar`, o relato foi para revisão humana, como previsto. O vídeo publicado passou pelo `scripts/anonimizar_video.py`.
 
 **Figuras** (cada uma com legenda no PDF):
+
 - Figura 1: fluxo do componente, dos dados ao uso do modelo (`resultados/fluxo.png`), no início da metodologia.
 - Figura 2: curvas de perda e métricas por época no treino do modelo A (`resultados/A_yolo26n/results.png`).
 - Figura 3: matriz de confusão normalizada no teste; a maior parte dos erros é barreira não encontrada, e não troca entre classes (`resultados/A_teste/confusion_matrix_normalized.png`).
@@ -218,7 +218,7 @@ O E0 reproduz a precisão, o recall e a contagem por foto do notebook 03, o que 
 
 ## Conclusão
 
-O grupo treinou de forma customizada um YOLO26n para barreiras de calçada que roda em tempo real num computador comum, sem placa de vídeo (14,5 FPS com a webcam e cerca de 12 FPS com a câmera do celular), avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço, com anonimização e revisão humana. Obstáculos, a barreira mais comum nas calçadas fotografadas, são reconhecidos de forma estável: mAP50 de 0,30 no teste, detecções firmes ao vivo (lixeira com 0,87 a 0,90) e, numa caminhada no Centro de Osasco, cidade fora do treino, cones, cadeiras, sacos de lixo, vasos e postes marcados no caminho. Com o limiar do serviço, 81% das fotos de teste com barreira chegam com pelo menos uma barreira marcada, e os recortes no `/detectar` elevaram o recall de 0,21 para 0,32.
+O grupo treinou de forma customizada um YOLO26n para barreiras de calçada que roda em tempo real num computador comum, sem placa de vídeo (14,5 FPS com a webcam e cerca de 12 FPS com a câmera do celular), avisa quando uma barreira entra na faixa à frente do pedestre e foi empacotado como serviço, com anonimização e revisão humana. Obstáculos, a barreira mais comum nas calçadas fotografadas, são reconhecidos de forma estável: mAP50 de 0,30 no teste, detecções firmes ao vivo (lixeira com 0,85 a 0,90) e, numa caminhada no Centro de Osasco, cidade fora do treino, cones, cadeiras, sacos de lixo, vasos e postes marcados no caminho. Com o limiar do serviço, 81% das fotos de teste com barreira chegam com pelo menos uma barreira marcada, e os recortes no `/detectar` elevaram o recall de 0,21 para 0,32.
 
 A principal lição é sobre dados: um modelo igual chega a 0,89 em imagens do dataset aberto e a 0,11 nas ruas de São Paulo, e uma validação misturada escolhia o modelo pelo dataset errado. Por isso o teste usa só ruas de São Paulo, e um detector para calçadas brasileiras precisa de fotos brasileiras, de vários bairros, horários e climas.
 
@@ -241,6 +241,11 @@ O ponto a evoluir é buraco e desnível (mAP50 de 0,06 e 0,12, com cerca de 110 
 - Portal Viva. Estudo da USP aponta que 88% das calçadas de SP são irregulares. 16/07/2026. https://viva.com.br/cidadania-e-direitos/estudo-da-usp-aponta-que-88-das-calcadas-de-sp-sao-irregulares.html
 - Portal Viva. Queda em idosos não pode ser vista como normal. 24/06/2026. https://viva.com.br/saude-e-bem-estar/queda-em-idosos-nao-pode-ser-vista-como-normal-veja-cuidados-dentro-de-casa.html
 - IBGE. Censo Demográfico 2022. https://biblioteca.ibge.gov.br/visualizacao/livros/liv102038.pdf
+- Redmon, J.; Divvala, S.; Girshick, R.; Farhadi, A. You Only Look Once: Unified, Real-Time Object Detection. CVPR, 2016. https://arxiv.org/abs/1506.02640
+- Lin, T.-Y. et al. Microsoft COCO: Common Objects in Context. ECCV, 2014. https://arxiv.org/abs/1405.0312
+- Aharon, N.; Orfaig, R.; Bobrovsky, B.-Z. BoT-SORT: Robust Associations Multi-Pedestrian Tracking. arXiv:2206.14651, 2022. https://arxiv.org/abs/2206.14651
+- Akyon, F. C.; Altinuc, S. O.; Temizel, A. Slicing Aided Hyper Inference and Fine-tuning for Small Object Detection. ICIP, 2022. https://arxiv.org/abs/2202.06934
+- Jocher, G. et al. Ultralytics YOLO26: Unified Real-Time End-to-End Vision Models. arXiv:2606.03748, 2026. https://arxiv.org/abs/2606.03748
 - Ultralytics. YOLO26 — documentação dos modelos. https://docs.ultralytics.com/models/
 - Ultralytics. Ultralytics Launches YOLO26 (Business Wire, 14/01/2026). https://www.businesswire.com/news/home/20260114168538/en
 - Monte, D. M. F. M. do; Goldschmidt, R. R.; Santos, M. dos. Identificação e Classificação de Patologias em Pavimentos Rodoviários Flexíveis e Rígidos Utilizando YOLOv8. WebMedia, SBC. https://sol.sbc.org.br/index.php/webmedia/article/download/37973/37751

@@ -1,6 +1,6 @@
 # Resultados
 
-Figuras e tabelas que vão para o README principal e para o PDF. Todas vêm do modelo final (YOLO26n, 3 classes, 640 px, rodada 1).
+Figuras e tabelas que vão para o README principal e para o PDF. Salvo indicação, vêm do modelo final (YOLO26n, 3 classes, 640 px, rodada 1).
 
 - `A_yolo26n/results.png`: curvas de treino do experimento A
 - `A_teste/confusion_matrix_normalized.png`: matriz de confusão no teste (31 fotos de São Paulo)

@@ -7,7 +7,7 @@ que o scripts/baixar_mapillary.py já grava como sp_<bairro>_<id>.jpg, por exemp
 (o Roboflow mantém o começo do nome: sp_itaquera_1234_jpg.rf.<hash>.jpg)
 
 Uso:
-  python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dataset/data.yaml \
+  python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dataset>/data.yaml \
       --grupo periferia=sp_itaquera,sp_jabaquara --grupo centro=sp_paulista,sp_se
 
 Imagens que não casam com nenhum grupo entram em "datasets abertos".
@@ -59,7 +59,7 @@ def main() -> None:
     pasta = Path(cfg[args.conjunto])
     pasta = pasta if pasta.is_absolute() else base / pasta
     imagens = sorted(i for i in pasta.glob("*") if i.suffix.lower() in EXTENSOES)
-    grupos = separar(imagens, ler_grupos(args.grupo or ["fotos proprias=sp_"]))
+    grupos = separar(imagens, ler_grupos(args.grupo or ["fotos de SP=sp_"]))
 
     modelo = YOLO(args.modelo)
     linhas = ["| Grupo | Imagens | Precisão | Recall | mAP50 | mAP50-95 |", "| --- | ---: | ---: | ---: | ---: | ---: |"]
@@ -75,7 +75,7 @@ def main() -> None:
                 f"| {nome} | {len(lista)} | {m.box.mp:.3f} | {m.box.mr:.3f} | {m.box.map50:.3f} | {m.box.map:.3f} |"
             )
     print("\n".join(linhas))
-    print("\nGrupos com poucas imagens (menos de ~30) dão números instáveis: diga isso no PDF.")
+    print("\nAtenção: grupos com poucas imagens (menos de ~30) dão números instáveis.")
 
 
 if __name__ == "__main__":

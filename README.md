@@ -39,11 +39,15 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 ## O papel da visão no Passo Firme
 
-A API do Passo Firme recebe a foto da calçada enviada pelo cidadão (`POST /relatos`) e a manda para o `POST /detectar` deste repositório, que devolve as barreiras (classe, confiança e caixa, os mesmos campos da tabela `deteccao` do banco do MVP) e a foto com cabeças e placas pixeladas. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. Fotos de celular são endireitadas pela orientação gravada no EXIF antes da detecção, e a foto devolvida sai sem metadados (inclusive o GPS).
+O componente de visão enxerga a calçada e transforma o que vê em informação: tipo, posição e confiança de cada barreira. As imagens chegam por três caminhos, todos testados:
 
-**Situação da integração:** este repositório entrega o serviço pronto, com Dockerfile. No MVP publicado no Azure, a rota `/detectar` ainda devolve uma resposta simulada no mesmo formato; ligar o detector real é publicar este container e apontar a API principal para ele.
+| Entrada | Como funciona | Código |
+| --- | --- | --- |
+| Câmera ao vivo | Webcam do PC ou câmera do celular pelo Wi-Fi (DroidCam). Detecção em tempo real, a 12–14 FPS, com zona de alerta à frente do pedestre e contagem das barreiras do trajeto | `src/tempo_real.py` |
+| Vídeo gravado | Uma caminhada filmada é processada quadro a quadro pelo mesmo script, como a do Centro de Osasco | `src/tempo_real.py --fonte video.mp4` |
+| Foto | `POST /detectar` recebe a foto, endireita pela orientação do EXIF e devolve as barreiras em JSON (classe, confiança e caixa, os campos da tabela `deteccao` do MVP) e a foto sem metadados, com rostos e placas pixelados. Sem detecção ou abaixo de 0,5 de confiança, vai para revisão humana | `src/api.py` |
 
-O mesmo modelo roda em tempo real (`src/tempo_real.py`) sobre a webcam, a câmera do celular ou um vídeo gravado: uma zona em trapézio marca o chão à frente do pedestre e fica vermelha quando uma barreira entra nela.
+No desenho do Passo Firme, a foto do cidadão chega à API do MVP (`POST /relatos`), que chama o `/detectar`. **Situação da integração:** este repositório entrega o serviço pronto, com Dockerfile; no MVP publicado no Azure, a rota `/detectar` ainda devolve uma resposta simulada no mesmo formato, e ligar o detector real é publicar este container e apontar a API do MVP para ele.
 
 ![Fluxo do componente de visão: dados e treino, e uso do modelo no tempo real e no serviço /detectar](resultados/fluxo.png)
 

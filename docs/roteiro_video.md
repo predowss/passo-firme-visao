@@ -40,7 +40,7 @@ Cerca de 410 palavras: lidas com calma (uns 145 por minuto), dão 2 min 50 s de 
 
 **1:25–2:00 · Na calçada.** "Agora, uma calçada de verdade, no Centro de Osasco, uma cidade que o modelo nunca viu no treino. O mesmo modelo processou o vídeo quadro a quadro: cones, cadeiras, sacos de lixo, vasos e postes no caminho são marcados como obstáculos, e a zona fica vermelha quando eles entram na faixa à frente. Pessoas e placas aparecem pixeladas. A contagem do trajeto é o que vira o mapa de prioridades."
 
-**2:00–2:30 · O serviço `/detectar`.** "O mesmo modelo virou um serviço. A API do Passo Firme envia a foto para o detectar, que endireita a imagem, devolve cada barreira com a confiança, aqui três obstáculos, e pixela rostos e placas antes de a foto ser guardada. Se o modelo não tiver certeza, uma pessoa revisa antes de encaminhar."
+**2:00–2:30 · O serviço `/detectar`.** "O mesmo modelo também funciona como serviço: recebe uma foto e devolve cada barreira com tipo, posição e confiança, aqui três obstáculos, e pixela rostos e placas. É assim que a visão transforma o que vê em informação para o Passo Firme. Se o modelo não tiver certeza, uma pessoa revisa antes de encaminhar."
 
 **2:30–2:50 · Resultados.** "No teste, com fotos de São Paulo que o modelo nunca viu, 81% das fotos com barreira recebem pelo menos uma detecção, e os obstáculos são o ponto forte, com mAP50 de 0,30. Dividir a foto em recortes fez o modelo achar cerca de 50% mais barreiras, e virou uma opção do serviço."
 

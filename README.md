@@ -4,7 +4,7 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 **Global Solution 2026.2 · CitizenTech · Engenharia de Software, 4º ano (4ESPY) · Applied Computer Vision**
 
-- **Vídeo de demonstração:** em edição; o link do YouTube (não listado) entra aqui até 19/11
+- **Vídeo de demonstração (2 min 41 s):** https://youtu.be/astTd2XMm9g
 - **Relatório (PDF):** [`docs/relatorio.pdf`](docs/relatorio.pdf) (texto-base em [`docs/relatorio_rascunho.md`](docs/relatorio_rascunho.md))
 - **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb) · [melhorias sem novos dados](notebooks/04_melhorias_sem_novos_dados_colab.ipynb)
 - **Dataset no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (versão 1, `v1-sp-blindspot`)
@@ -50,6 +50,14 @@ O componente de visão enxerga a calçada e transforma o que vê em informação
 No desenho do Passo Firme, a foto do cidadão chega à API do MVP (`POST /relatos`), que chama o `/detectar`. **Situação da integração:** este repositório entrega o serviço pronto, com Dockerfile; no MVP publicado no Azure, a rota `/detectar` ainda devolve uma resposta simulada no mesmo formato, e ligar o detector real é publicar este container e apontar a API do MVP para ele.
 
 ![Fluxo do componente de visão: dados e treino, e uso do modelo no tempo real e no serviço /detectar](resultados/fluxo.png)
+
+## Dados e treino
+
+- **Dataset (285 imagens, 3 classes: `buraco`, `desnivel` e `obstaculo`):** 180 fotos de calçadas da Sé, em São Paulo, baixadas do Mapillary só de sequências capturadas a pé e anotadas pelo grupo no Roboflow com um guia único ([`docs/guia_de_anotacao.md`](docs/guia_de_anotacao.md)), mais 105 imagens do dataset aberto *Sidewalk obstacles*, com as classes reagrupadas.
+- **Divisão sem vazamento:** sequências inteiras do Mapillary ficam só no treino e validação ou só no teste; o teste tem apenas fotos de São Paulo (31 imagens, 71 barreiras).
+- **Treino:** ajuste fino do YOLO26n a partir dos pesos do COCO, no Google Colab (GPU T4), em 640 px, com até 80 épocas, parada antecipada e o aumento de dados do Ultralytics.
+- **Experimentos:** duas rodadas de treino (nano × small, 640 × 960 px, 3 × 2 classes, validação mista × só de São Paulo) e quatro melhorias sem fotos novas (notebook 04). O modelo final é o YOLO26n de 3 classes em 640 px, o mais estável ao vivo.
+- **Ferramentas:** Python, Ultralytics YOLO26, Roboflow, API do Mapillary, Google Colab, OpenCV, rastreamento BoT-SORT, FastAPI e Docker.
 
 ## Resultados
 
@@ -110,7 +118,7 @@ Precisão e recall por caixa com IoU de 0,5. Com o limiar de 0,25 do serviço, 4
 
 ![Exemplos de acerto no teste](resultados/exemplos_acerto.png)
 
-Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 classes, e análise dos piores casos estão no relatório e nos notebooks.
+Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 classes e análise dos piores casos estão no relatório e nos notebooks.
 
 ## Como reproduzir
 
@@ -131,7 +139,7 @@ Depois, siga `docs/guia_de_anotacao.md` (classes, revisão das imagens, anotaç�
 
 ### 2. Treino (Google Colab, GPU T4)
 
-Abra `notebooks/01_treino_yolo26_colab.ipynb` no Colab, crie o segredo `ROBOFLOW_API_KEY` (painel de chave à esquerda, com acesso liberado para o notebook), confira workspace, projeto e versão e use *Executar tudo*. Ao fim, o notebook baixa o `best.pt`; coloque-o em `modelos/`. O `notebooks/02_treino_rodada2_colab.ipynb` repete o treino com a validação só de São Paulo e a variante de 2 classes.
+Abra `notebooks/01_treino_yolo26_colab.ipynb` no Colab, crie o segredo `ROBOFLOW_API_KEY` (painel de chave à esquerda, com acesso liberado para o notebook), confira workspace, projeto e versão e use *Executar tudo*. Ao fim, o notebook baixa o `best.pt`; coloque-o em `modelos/`. O `notebooks/02_treino_rodada2_colab.ipynb` repete o treino com a validação só de São Paulo e a variante de 2 classes. Os notebooks 03 e 04 baixam o `best.pt` deste repositório e medem, no mesmo teste, os limiares de confiança e as melhorias sem fotos novas.
 
 ### 3. Tempo real (no seu computador)
 
@@ -190,7 +198,7 @@ Resposta real para a foto `sp_se_1542016304509302.jpg` do teste (saco de lixo, c
 }
 ```
 
-A primeira chamada leva cerca de 2 s porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64. Com `recortes=true`, o detector lê também quatro pedaços da foto e junta as caixas: no teste, o recall subiu de 0,21 para 0,32 e a precisão caiu de 0,35 para 0,25 (notebook 04). Vem desligado para manter a resposta acima:
+A primeira chamada leva alguns segundos porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64. Com `recortes=true`, o detector lê também quatro pedaços da foto e junta as caixas: no teste, o recall subiu de 0,21 para 0,32 e a precisão caiu de 0,35 para 0,25 (notebook 04). Vem desligado para manter a resposta acima:
 
 ```bash
 curl -F "foto=@calcada.jpg" "http://localhost:8001/detectar?devolver_imagem=false&recortes=true"
@@ -241,6 +249,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 - O dataset é uma coleção: as anotações e a documentação do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
 - O código usa a biblioteca Ultralytics, distribuída sob AGPL-3.0; o serviço e o modelo `best.pt`, treinado com ela, seguem essa licença.
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs; só a cópia anonimizada sai dele, sem os metadados EXIF.
+- Os vídeos e as imagens de rua gravados pelo grupo (Osasco) passaram pelo `scripts/anonimizar_video.py`, que pixela cabeças e placas, antes de entrar no repositório e no vídeo.
 
 ## Limitações e como o sistema lida com elas
 

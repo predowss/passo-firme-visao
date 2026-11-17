@@ -18,7 +18,7 @@ Estrutura exigida pela disciplina, na ordem: título, integrantes, resumo (250 p
 | Orlando Akio Morii Cardoso | RM98067 |
 | Pedro Henrique Alves Guariente | RM550301 |
 
-**Repositório:** https://github.com/predowss/passo-firme-visao · **Vídeo:** [link do YouTube, não listado — entra na edição de 18/11]
+**Repositório:** https://github.com/predowss/passo-firme-visao · **Vídeo:** https://youtu.be/astTd2XMm9g
 
 ---
 
@@ -34,7 +34,7 @@ Os números de São Paulo mostram o tamanho do problema. Os pedidos ao SP156 sob
 
 O que falta não é reclamação, é informação organizada: onde estão as barreiras, de que tipo, e quais atrapalham mais gente. A visão computacional resolve a primeira parte: uma foto de celular, ou o vídeo de alguém caminhando, vira uma lista de barreiras com tipo, posição e confiança. Trabalhos recentes já usam a família YOLO para patologias de pavimento no Brasil, em geral na pista e vistas de um veículo (Monte et al., IME), e pesquisadores da USP publicaram o SideSeeing, um conjunto de vídeos e sensores para avaliar calçadas (Damaceno et al.). Aqui o ponto de vista é o do pedestre, e as classes foram escolhidas pelo risco para quem anda.
 
-No Passo Firme, este componente é o "olho" do produto: o cidadão fotografa, o detector identifica a barreira, a IA generativa explica quem é o responsável pelo conserto e o robô de triagem encaminha.
+No Passo Firme, este componente é o "olho" do produto: enxerga a calçada por imagens e transforma o que vê em informação (o tipo, a posição e a confiança de cada barreira), que a IA generativa usa para explicar quem é o responsável pelo conserto e o robô de triagem usa para encaminhar.
 
 ## Objetivo
 
@@ -59,6 +59,8 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 **Rastreamento.** O Ultralytics associa as caixas de um quadro ao seguinte com o rastreador BoT-SORT, o padrão da biblioteca. Cada barreira recebe um número que se mantém enquanto ela está à vista, o que permite contar as barreiras distintas de um trajeto.
 
 **DroidCam.** Aplicativo que transforma o celular em câmera de rede: o PC lê o vídeo pelo Wi-Fi num endereço HTTP, como se fosse uma webcam.
+
+**Inferência em recortes (*tiles*).** A foto é dividida em quatro pedaços com 20% de sobreposição, e cada um é lido a 640 px junto com a foto inteira; as caixas repetidas da mesma classe são juntadas. Num pedaço, um objeto pequeno ocupa mais pixels e fica mais fácil de achar.
 
 **FastAPI e Docker.** O detector roda como um serviço HTTP (`POST /detectar`) empacotado num container, no formato que a API principal do Passo Firme espera (classe, confiança e caixa de cada barreira).
 
@@ -110,7 +112,8 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    - *Modelo final:* A da rodada 1 (YOLO26n, 3 classes, 640 px). No teste, os modelos das duas rodadas ficaram dentro da mesma margem para um conjunto de 31 imagens (mAP50 geral de 0,11 a 0,17; em obstáculo, 0,22 a 0,31), e juntar buraco e desnível não ajudou (0,03 em `dano_no_piso`). Por isso o critério de desempate foi o comportamento ao vivo: na câmera, o modelo A da rodada 1 detectou a mesma lixeira com confiança de 0,89 a 0,90, de forma estável, enquanto o C2 oscilava em torno de 0,26 e confundia a quina de uma estante com obstáculo.
 8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; precisão e recall em quatro limiares de confiança (0,10, 0,25, 0,35 e 0,50), com IoU de 0,5 e de 0,3, e por foto (`notebooks/03_limiar_confianca_colab.ipynb`); desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos. Por fim, quatro tentativas de melhorar sem anotar fotos novas (ler a foto em 960 e 1280 px, dividi-la em recortes e treinar de novo com a validação junto), medidas com a mesma conta (`notebooks/04_melhorias_sem_novos_dados_colab.ipynb`).
 9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Em fonte ao vivo, uma thread lê a câmera o tempo todo e o modelo recebe sempre o quadro mais recente: como a câmera produz mais quadros do que o modelo processa na CPU, os quadros velhos são descartados em vez de formar fila, e o atraso entre o mundo e a tela não cresce com o tempo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
-10. **Serviço para o MVP.** O serviço `POST /detectar` recebe a foto que o cidadão enviou à API do Passo Firme (`POST /relatos`), endireita a imagem pela orientação gravada no EXIF (fotos de celular costumam chegar deitadas), roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada, recodificada sem metadados (inclusive a localização do GPS); a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container. Uma opção, `recortes=true`, faz o detector ler também quatro pedaços da foto, o que acha mais barreiras pequenas ao custo de mais falsos alarmes (ver Resultados).
+10. **Serviço para o MVP.** O serviço `POST /detectar` recebe uma foto (no desenho do Passo Firme, a que o cidadão envia à API do MVP pelo `POST /relatos`), endireita a imagem pela orientação gravada no EXIF (fotos de celular costumam chegar deitadas), roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada, recodificada sem metadados (inclusive a localização do GPS); a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container. Uma opção, `recortes=true`, faz o detector ler também quatro pedaços da foto, o que acha mais barreiras pequenas ao custo de mais falsos alarmes (ver Resultados).
+11. **Testes em campo.** Ao vivo em casa, com a câmera do celular (16/11), e numa caminhada de 3 minutos no Centro de Osasco, cidade fora do treino (17/11), com o vídeo processado quadro a quadro e anonimizado antes de publicar.
 
 ## Exemplos de resultados
 

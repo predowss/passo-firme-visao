@@ -104,4 +104,4 @@ Cerca de 410 palavras: lidas com calma (uns 145 por minuto), dão 2 min 50 s de 
 - [ ] Os limites aparecem uma vez, curtos e com o próximo passo (buraco e desnível; dado local).
 - [x] Vídeos da rua passados pelo `anonimizar_video.py` (conferido em quadros); ninguém de fora do grupo identificável.
 - [ ] Legendas ligadas ou embutidas.
-- [ ] Link testado numa janela anônima.
+- [ ] Link testado numa janela anônima: https://youtu.be/astTd2XMm9g

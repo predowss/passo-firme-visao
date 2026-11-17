@@ -6,7 +6,7 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 - **Vídeo de demonstração:** em edição; o link do YouTube (não listado) entra aqui até 19/11
 - **Relatório (PDF):** [`docs/relatorio.pdf`](docs/relatorio.pdf) (texto-base em [`docs/relatorio_rascunho.md`](docs/relatorio_rascunho.md))
-- **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb)
+- **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb) · [melhorias sem novos dados](notebooks/04_melhorias_sem_novos_dados_colab.ipynb)
 - **Dataset no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (versão 1, `v1-sp-blindspot`)
 
 ![Detecção ao vivo pela câmera do celular: a lixeira é marcada como obstáculo e a zona de caminhada fica vermelha](resultados/tempo_real_ao_vivo.gif)
@@ -78,9 +78,28 @@ Precisão e recall por caixa com IoU de 0,5. Com o limiar de 0,25 do serviço, 4
 
 **Dados locais fazem diferença:** um modelo igual acerta mAP50 de 0,89 em 16 imagens do dataset aberto que não viu e só 0,11 nas ruas de São Paulo.
 
+**Melhorias sem anotar fotos novas** (`notebooks/04_melhorias_sem_novos_dados_colab.ipynb`, tabela em `resultados/melhorias.csv`), no mesmo teste e com a mesma conta para todos:
+
+| Experimento | mAP50 | Precisão (0,25) | Recall (0,25) | Fotos com barreira com ao menos uma detecção | ms por foto (GPU T4) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| E0 modelo final, 640 px | 0,175 | 0,349 | 0,211 | 21 de 26 | 513* |
+| E1 inferência em 960 px | 0,131 | 0,261 | 0,169 | 20 de 26 | 26 |
+| E2 inferência em 1280 px | 0,115 | 0,209 | 0,127 | 21 de 26 | 30 |
+| E3 recortes 2×2 + foto inteira | **0,204** | 0,245 | **0,324** | **26 de 26** | 72 |
+| E4 treino + validação juntos | 0,157 | 0,312 | 0,141 | 20 de 26 | 26 |
+| E5 E4 + recortes | 0,113 | 0,158 | 0,169 | 23 de 26 | 73 |
+
+\* Inclui o aquecimento da GPU na primeira chamada; o E4, com um modelo do mesmo tamanho, levou 26 ms.
+
+Ler a foto maior ou treinar com 38 imagens a mais não ajudou: o gargalo são os dados. Só os recortes ganharam, achando barreiras pequenas, mas com precisão menor e cerca de 3 vezes o tempo. Por isso viraram uma opção do `/detectar` (`recortes=true`), onde uma pessoa revisa os casos incertos, e ficaram fora do tempo real. O E0 reproduz a precisão, o recall e a contagem por foto do notebook 03; seu mAP50 (0,175) fica acima do 0,159 do Ultralytics por detalhes da conta, por isso cada experimento é comparado com o E0.
+
+**Na rua (17/11).** Uma caminhada de 3 minutos no Centro de Osasco, na Grande São Paulo (cidade fora do treino, que só tem fotos da Sé), filmada com o celular e processada no PC, quadro a quadro, a 12 ou 13 FPS: o modelo marcou cones, cadeiras de plástico, sacos de lixo, vasos e postes no caminho, e a zona ficou vermelha quando eles entraram na faixa à frente. Também errou: tomou uma tampa de bueiro por buraco, enquanto a caixa de inspeção aberta ao lado só foi marcada no fim, já colada, em poucos quadros.
+
+<p><img src="resultados/rua_alerta.jpg" width="49%" alt="Na rua: cadeiras de plástico na faixa à frente acionam o alerta"> <img src="resultados/rua_bueiro.jpg" width="49%" alt="Erro na rua: tampa de bueiro marcada como buraco, caixa aberta ao lado sem marcação"></p>
+
 ![Exemplos de acerto no teste](resultados/exemplos_acerto.png)
 
-Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 classes e análise dos piores casos estão no relatório e nos notebooks.
+Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 classes, e análise dos piores casos estão no relatório e nos notebooks.
 
 ## Como reproduzir
 
@@ -160,7 +179,11 @@ Resposta real para a foto `sp_se_1542016304509302.jpg` do teste (saco de lixo, c
 }
 ```
 
-A primeira chamada leva cerca de 2 s porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64.
+A primeira chamada leva cerca de 2 s porque carrega os modelos; as seguintes são mais rápidas. Com `devolver_imagem=true`, a resposta traz também a foto anonimizada em base64. Com `recortes=true`, o detector lê também quatro pedaços da foto e junta as caixas: no teste, o recall subiu de 0,21 para 0,32 e a precisão caiu de 0,35 para 0,25 (notebook 04). Vem desligado para manter a resposta acima:
+
+```bash
+curl -F "foto=@calcada.jpg" "http://localhost:8001/detectar?devolver_imagem=false&recortes=true"
+```
 
 ![Resposta do /detectar desenhada na foto: três obstáculos, cabeça e placas pixeladas](resultados/detectar_resposta_caixas.jpg)
 
@@ -178,7 +201,8 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 ├── notebooks/
 │   ├── 01_treino_yolo26_colab.ipynb   rodada 1: treino, avaliação e figuras (com saídas)
 │   ├── 02_treino_rodada2_colab.ipynb  rodada 2: validação só de SP, 2 classes (com saídas)
-│   └── 03_limiar_confianca_colab.ipynb precisão e recall por limiar e por foto (com saídas)
+│   ├── 03_limiar_confianca_colab.ipynb precisão e recall por limiar e por foto (com saídas)
+│   └── 04_melhorias_sem_novos_dados_colab.ipynb resolução, recortes e treino + validação (com saídas)
 ├── src/
 │   ├── tempo_real.py      detecção ao vivo com zona de alerta, FPS e contagem
 │   ├── api.py             serviço POST /detectar (FastAPI)
@@ -194,7 +218,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 │   └── roteiro_video.md       roteiro e checklist do vídeo
 ├── dados/      README com links, licenças e créditos dos datasets
 ├── modelos/    best.pt treinado
-├── resultados/ figuras do relatório, GIF do tempo real e tabela de limiares
+├── resultados/ figuras do relatório, GIF do tempo real, tabelas de limiares e de melhorias
 ├── Dockerfile
 └── requirements.txt / requirements-api.txt
 ```
@@ -211,8 +235,8 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 
 | Limitação | O que o sistema já faz | Próximo passo |
 | --- | --- | --- |
-| **Buraco e desnível pouco aprendidos** (mAP50 de 0,06 e 0,12, com cerca de 110 exemplos no treino; juntar as duas classes não ajudou) | Limiar baixo (0,25) e revisão humana: foto sem detecção ou com confiança abaixo de 0,5 não é encaminhada sem uma pessoa ver. Assim, 81% das fotos de teste com barreira já chegam com ao menos uma marcação, e as outras não se perdem | Usar as fotos confirmadas pelos cidadãos no app como novos rótulos, priorizando dano no piso, com as regras de anotação revistas (guia, seção 7) |
-| **Fotos de uma só região** (Sé), de um único colaborador do Mapillary, tiradas de dia, numa mesma data | Divisão por sequência e teste só com ruas de SP, para não superestimar o desempenho; o que não foi medido (periferia, chuva, noite) está declarado | Coletar em outros bairros, com chuva e à noite, e medir por região com o `scripts/avaliar_por_regiao.py`, que já está pronto |
+| **Buraco e desnível pouco aprendidos** (mAP50 de 0,06 e 0,12, com cerca de 110 exemplos no treino; juntar as duas classes, ler a foto maior e treinar com a validação junto não ajudaram; na rua, uma tampa de bueiro virou buraco) | Limiar baixo (0,25) e revisão humana: foto sem detecção ou com confiança abaixo de 0,5 não é encaminhada sem uma pessoa ver. Assim, 81% das fotos de teste com barreira já chegam com ao menos uma marcação, e as outras não se perdem. No `/detectar`, a opção de recortes sobe o recall de 0,21 para 0,32 | Usar as fotos confirmadas pelos cidadãos no app como novos rótulos, priorizando dano no piso, com as regras de anotação revistas (guia, seção 7) |
+| **Fotos de uma só região** (Sé), de um único colaborador do Mapillary, tiradas de dia, numa mesma data | Divisão por sequência e teste só com ruas de SP, para não superestimar o desempenho; o que não foi medido (periferia, chuva, noite) está declarado. A caminhada no Centro de Osasco, fora do treino, deu uma primeira amostra de outra região, só qualitativa | Coletar em outros bairros, com chuva e à noite, e medir por região com o `scripts/avaliar_por_regiao.py`, que já está pronto |
 | **Teste pequeno** (31 fotos, 71 barreiras) | Diferenças de poucos centésimos entre modelos não são tratadas como ganho; o desempate do modelo final foi o comportamento ao vivo | Ampliar o teste com sequências novas, que não entram no treino |
 | **Só reconhece o tipo de barreira que aprendeu** (no teste ao vivo, um cachorro deitado e uma árvore no caminho não geraram alerta) | O escopo está declarado (três classes), e no app a foto sem detecção vai para revisão humana | Acrescentar classes, como veículo na calçada, ou testar um detector de vocabulário aberto, como o YOLOE-26 da Ultralytics |
 | **Anonimização por heurística** | Duas camadas (pessoas e veículos do COCO e detector de rosto), sobre fotos que o Mapillary já borra; a foto original não é guardada | Revisão humana das fotos antes de aparecerem no mapa público |

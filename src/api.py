@@ -8,6 +8,12 @@ resposta simulada no mesmo formato. Ordem do que acontece:
   3. anonimiza a imagem (cabeças e placas) e só essa cópia sai daqui;
   4. marca revisão humana quando o modelo não tem certeza.
 
+Opção `recortes=true`: além da foto inteira, o detector lê 4 recortes com sobreposição e
+as caixas são juntadas. No teste (notebook 04) isso subiu o recall de 0,21 para 0,32 e o
+mAP50 de 0,175 para 0,204, mas baixou a precisão de 0,35 para 0,25 e custa cerca de 3 vezes
+o tempo. Vem desligada para manter a resposta documentada; serve quando perder uma barreira
+pequena custa mais do que uma revisão humana a mais.
+
 Rodar localmente (da raiz do repositório):
   uvicorn src.api:app --host 0.0.0.0 --port 8001
   # documentação interativa em http://localhost:8001/docs
@@ -59,6 +65,48 @@ app = FastAPI(
 )
 
 
+def _iou(a, b) -> float:
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    uniao = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / uniao if uniao > 0 else 0.0
+
+
+def janelas(w: int, h: int, colunas: int = 2, linhas: int = 2, sobra: float = 0.2) -> list:
+    """Recortes que cobrem a foto com 20% de sobreposição: [(x1, y1, x2, y2)]."""
+    tw = int(w / (colunas - (colunas - 1) * sobra))
+    th = int(h / (linhas - (linhas - 1) * sobra))
+    xs = [round(i * (w - tw) / max(1, colunas - 1)) for i in range(colunas)]
+    ys = [round(j * (h - th) / max(1, linhas - 1)) for j in range(linhas)]
+    return [(x, y, x + tw, y + th) for y in ys for x in xs]
+
+
+def _prever(img: np.ndarray, desloc: tuple = (0, 0)) -> list:
+    """Caixas do detector como (classe, confiança, x1, y1, x2, y2), em pixels da foto inteira."""
+    r = detector.predict(img, conf=CONF_MIN, imgsz=640, verbose=False)[0]
+    dx, dy = desloc
+    return [
+        (int(c), float(cf), x1 + dx, y1 + dy, x2 + dx, y2 + dy)
+        for (x1, y1, x2, y2), c, cf in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist())
+    ]
+
+
+def detectar_caixas(img: np.ndarray, recortes: bool = False) -> list:
+    """Foto inteira e, com recortes, também os 4 pedaços; duplicatas da mesma classe são juntadas."""
+    caixas = _prever(img)  # a foto inteira pega o que é grande
+    if not recortes:
+        return caixas
+    h, w = img.shape[:2]
+    for x1, y1, x2, y2 in janelas(w, h):  # os recortes pegam o que é pequeno
+        caixas += _prever(np.ascontiguousarray(img[y1:y2, x1:x2]), (x1, y1))
+    ficam = []  # NMS por classe (IoU > 0,5), a mesma regra do notebook 04
+    for cx in sorted(caixas, key=lambda b: -b[1]):
+        if all(not (f[0] == cx[0] and _iou(f[2:], cx[2:]) > 0.5) for f in ficam):
+            ficam.append(cx)
+    return ficam
+
+
 def ler_foto(dados: bytes) -> np.ndarray | None:
     """Abre a foto enviada já na orientação certa.
 
@@ -88,6 +136,11 @@ def saude() -> dict:
 async def detectar(
     foto: UploadFile = File(..., description="Foto da calçada (JPG ou PNG)"),
     devolver_imagem: bool = Query(True, description="Devolver a foto anonimizada em base64"),
+    recortes: bool = Query(
+        False,
+        description="Ler também 4 recortes da foto: acha mais barreiras pequenas (recall 0,21 → 0,32 no teste), "
+        "com mais falsos alarmes e cerca de 3 vezes o tempo",
+    ),
 ) -> dict:
     dados = await foto.read()
     if len(dados) > MAX_BYTES:
@@ -97,14 +150,13 @@ async def detectar(
         raise HTTPException(status_code=422, detail="O arquivo enviado não é uma imagem válida.")
 
     inicio = time.perf_counter()
-    r = detector.predict(img, conf=CONF_MIN, imgsz=640, verbose=False)[0]
     deteccoes = [
         {
-            "classe": r.names[int(c)],
-            "confianca": round(float(cf), 3),
+            "classe": detector.names[c],
+            "confianca": round(cf, 3),
             "caixa": [round(float(v), 1) for v in xyxy],  # x1, y1, x2, y2 em pixels da foto enviada
         }
-        for xyxy, c, cf in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist())
+        for c, cf, *xyxy in detectar_caixas(img, recortes)
     ]
     deteccoes.sort(key=lambda d: d["confianca"], reverse=True)
 
@@ -131,7 +183,7 @@ async def detectar(
 
     # log sem foto, sem nome de arquivo e sem localização: só o necessário para monitorar
     log.info(
-        "detectar id=%s total=%d maior_conf=%.2f revisao=%s tempo_ms=%.0f",
-        resposta["id"], resposta["total"], maior, resposta["revisao_humana"], tempo_ms,
+        "detectar id=%s total=%d maior_conf=%.2f revisao=%s recortes=%s tempo_ms=%.0f",
+        resposta["id"], resposta["total"], maior, resposta["revisao_humana"], recortes, tempo_ms,
     )
     return resposta

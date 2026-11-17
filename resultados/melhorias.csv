@@ -1,0 +1,7 @@
+experimento,mAP50,mAP50 buraco,mAP50 desnivel,mAP50 obstaculo,"precisão (0,25)","recall (0,25)","fotos com barreira detectadas (0,25)",alarme em fotos sem barreira,ms por imagem (GPU)
+E0 base (640),0.175,0.076,0.114,0.334,0.349,0.211,21 de 26,2 de 5,513.094
+E1 inferência em 960,0.131,0.074,0.051,0.269,0.261,0.169,20 de 26,3 de 5,26.134
+E2 inferência em 1280,0.115,0.095,0.092,0.157,0.209,0.127,21 de 26,3 de 5,29.719
+E3 recortes 2x2 + foto inteira,0.204,0.084,0.285,0.244,0.245,0.324,26 de 26,2 de 5,72.331
+E4 treino + validação (640),0.157,0.063,0.158,0.248,0.312,0.141,20 de 26,1 de 5,26.235
+E5 treino + validação + recortes,0.113,0.108,0.035,0.195,0.158,0.169,23 de 26,4 de 5,73.076

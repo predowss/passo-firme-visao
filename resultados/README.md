@@ -11,5 +11,7 @@ Figuras e tabelas que vão para o README principal e para o PDF. Todas vêm do m
 - `tempo_real_ao_vivo.gif`: 6,5 s da detecção ao vivo pela câmera do celular (lixeira e zona de alerta), para o README
 - `fluxo.png`: diagrama do fluxo do componente (dados, treino, avaliação e uso do modelo), Figura 1 do relatório
 - `detectar_resposta_caixas.jpg`: resposta do `/detectar` desenhada na foto, com três obstáculos e a cabeça e as placas pixeladas
+- `melhorias.csv`: E0 a E5 do `notebooks/04_melhorias_sem_novos_dados_colab.ipynb` (resolução maior, recortes, treino + validação), com mAP50 por classe, precisão e recall a 0,25, contagem por foto e tempo na GPU T4. O tempo do E0 inclui o aquecimento da GPU
+- `rua_alerta.jpg` e `rua_bueiro.jpg`: quadros da caminhada de 17/11 no Centro de Osasco, processada pelo `tempo_real.py` e anonimizada: cadeiras na faixa à frente acionando o alerta, e o erro da tampa de bueiro marcada como buraco (Figura 8 do relatório)
 
 Vídeos `.mp4` não entram no Git (estão no `.gitignore`); o vídeo de entrega vai para o YouTube.

@@ -11,7 +11,7 @@ Todo mundo que revisa ou anota imagens segue este guia. Anotação inconsistente
 | `obstaculo` | Objeto que estreita a passagem: poste, lixeira, entulho, mesa ou cadeira de comércio, placa, tapume, galho baixo | Objeto encostado no muro que não bloqueia; pessoas; animais |
 | `veiculo_na_calcada` (opcional) | Carro ou moto parado em cima da calçada | Veículo na rua, mesmo encostado na guia |
 
-A quarta classe só entra no treino com pelo menos 80 exemplos anotados.
+A quarta classe só entra no treino com pelo menos 80 exemplos anotados. Na versão 1 do dataset ela não entrou: o modelo final tem só `buraco`, `desnivel` e `obstaculo`.
 
 ## 2. Regras da caixa
 
@@ -38,7 +38,7 @@ As imagens de calçadas de São Paulo vêm do Mapillary, filtradas para sequênc
    py scripts\baixar_mapillary.py --regiao itaquera --regiao jabaquara --regiao paulista --regiao se
    ```
 
-   O padrão é 200 imagens por bairro. Os quatro bairros já têm caixas pré-definidas em volta de pontos conhecidos (estação Itaquera, estação Jabaquara, Av. Paulista e Praça da Sé); para outro bairro, use `--regiao "nome=lon_min,lat_min,lon_max,lat_max"`.
+   Na versão 1 do dataset, as 180 imagens que ficaram depois da revisão são todas da região da Sé. O padrão é 200 imagens por bairro. Os quatro bairros já têm caixas pré-definidas em volta de pontos conhecidos (estação Itaquera, estação Jabaquara, Av. Paulista e Praça da Sé); para outro bairro, use `--regiao "nome=lon_min,lat_min,lon_max,lat_max"`.
    **Se vierem fotos de carro** (comum em São Paulo, onde a maior parte do Mapillary foi gravada de carro), escolham as sequências a dedo:
 
    ```cmd
@@ -91,3 +91,12 @@ Na hora de gerar a versão (*Versions → Generate*):
    As classes com nome de número são rótulos trocados no dataset original: cada uma foi identificada abrindo as imagens no Roboflow (busca `class:000000005669`). Antes de descartar uma classe de origem, confiram o que ela marca; descartar um obstáculo real deixa a barreira sem caixa.
 
 3. Confiram em *Health Check* que sobraram só `buraco`, `desnivel` e `obstaculo` e anotem o número da versão: é o `VERSAO` do notebook.
+
+## 7. Revisão do guia depois da análise de erros (para a próxima versão)
+
+A análise dos piores casos do teste (relatório, seção de resultados) mostrou três pontos em que a anotação da versão 1 não foi uniforme. Na próxima versão do dataset, valem estas regras, e as imagens já anotadas devem ser revistas com elas:
+
+1. **Distância (reforço da regra 4).** Parte das barreiras pequenas a mais de uns 10 m foi anotada, o que contradiz a regra 4 e conta como erro do modelo. Na revisão, apaguem essas caixas.
+2. **Lixo miúdo.** Copo, papel, bituca ou embalagem solta só viram `obstaculo` se estreitarem a passagem (de regra, a partir do tamanho de um saco de lixo). Lixo miúdo espalhado não se anota.
+3. **Área de dano no piso.** Pedras soltas, placas quebradas e buracos emendados formam uma área contínua: uma caixa só em volta da área toda, e não várias caixas pequenas dentro dela (regra 2 levada ao dano no piso).
+

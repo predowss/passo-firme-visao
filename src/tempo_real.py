@@ -4,24 +4,28 @@ Desenha as caixas, mede o FPS e marca no chão uma "zona de caminhada" (o trecho
 logo à frente de quem anda). Quando uma barreira entra nessa zona, a zona fica
 vermelha e aparece o aviso na tela, como um alerta em realidade aumentada.
 
-Exemplos:
-  # webcam do notebook
+Exemplos (no Windows, use py no lugar de python):
+  # webcam do computador
   python src/tempo_real.py --modelo modelos/best.pt --fonte 0
 
-  # câmera do celular pelo app IP Webcam (Android), na mesma rede Wi-Fi
-  python src/tempo_real.py --modelo modelos/best.pt --fonte http://192.168.0.10:8080/video
+  # câmera do celular pelo app DroidCam, na mesma rede Wi-Fi (o app mostra o IP)
+  python src/tempo_real.py --modelo modelos/best.pt --fonte http://192.168.0.14:4747/video --rastrear
 
-  # vídeo gravado andando na calçada, salvando o resultado para o vídeo de entrega
-  python src/tempo_real.py --modelo modelos/best.pt --fonte caminhada.mp4 --salvar resultados/demo.mp4
+  # vídeo gravado andando na calçada, contando as barreiras e salvando o resultado
+  python src/tempo_real.py --modelo modelos/best.pt --fonte caminhada.mp4 --rastrear --salvar resultados/demo.mp4
 
-  # contando barreiras distintas ao longo do trajeto (rastreamento com IDs)
-  python src/tempo_real.py --modelo modelos/best.pt --fonte caminhada.mp4 --rastrear
+Em fonte ao vivo (câmera ou URL), uma thread lê a câmera o tempo todo e o modelo
+sempre recebe o quadro mais recente: se o modelo for mais lento que a câmera, os
+quadros velhos são descartados em vez de formar fila, e o atraso não cresce. Com
+--salvar, o vídeo ao vivo é gravado com o FPS medido, para tocar na velocidade real.
+Em vídeo gravado, todos os quadros são processados, na ordem.
 
 Teclas: q ou Esc para sair.
 """
 from __future__ import annotations
 
 import argparse
+import threading
 import time
 from collections import Counter, deque
 
@@ -40,6 +44,61 @@ CORES = {
 NOME_NA_TELA = {"dano_no_piso": "dano no piso", "veiculo_na_calcada": "veiculo na calcada"}
 VERDE = (80, 175, 76)
 VERMELHO = (36, 28, 237)
+
+
+class LeitorAoVivo:
+    """Lê uma fonte ao vivo numa thread e guarda só o quadro mais recente."""
+
+    def __init__(self, cap) -> None:
+        self.cap = cap
+        self._quadro = None
+        self._numero = 0          # quantos quadros a câmera já entregou
+        self._entregue = 0        # número do último quadro passado ao modelo
+        self._usados = 0          # quantos quadros o modelo recebeu
+        self._fim = False
+        self._parar = False
+        self._trava = threading.Condition()
+        self._thread = threading.Thread(target=self._ler, daemon=True)
+        self._thread.start()
+
+    def _ler(self) -> None:
+        while not self._parar:
+            ok, quadro = self.cap.read()
+            with self._trava:
+                if not ok:
+                    self._fim = True
+                    self._trava.notify_all()
+                    return
+                self._quadro, self._numero = quadro, self._numero + 1
+                self._trava.notify_all()
+
+    def read(self, espera: float = 5.0):
+        """Devolve (ok, quadro) com um quadro mais novo que o último entregue."""
+        with self._trava:
+            self._trava.wait_for(lambda: self._numero > self._entregue or self._fim, timeout=espera)
+            if self._numero > self._entregue:
+                self._entregue = self._numero
+                self._usados += 1
+                return True, self._quadro
+            return False, None
+
+    @property
+    def descartados(self) -> int:
+        """Quadros que a câmera entregou e o modelo não chegou a ver."""
+        return self._numero - self._usados
+
+    def release(self) -> None:
+        self._parar = True
+        self._thread.join(timeout=1.0)
+        self.cap.release()
+
+
+def abrir_gravador(caminho: str, fps: float, w: int, h: int) -> cv2.VideoWriter:
+    return cv2.VideoWriter(caminho, cv2.VideoWriter_fourcc(*"mp4v"), max(1.0, fps), (w, h))
+
+
+def eh_ao_vivo(fonte) -> bool:
+    return isinstance(fonte, int) or str(fonte).lower().startswith(("http://", "https://", "rtsp://", "rtmp://"))
 
 
 def argumentos() -> argparse.Namespace:
@@ -109,8 +168,12 @@ def main() -> None:
     cap = cv2.VideoCapture(fonte)
     if not cap.isOpened():
         raise SystemExit(f"Não consegui abrir a fonte de vídeo: {args.fonte}")
+    ao_vivo = eh_ao_vivo(fonte)
+    fps_fonte = cap.get(cv2.CAP_PROP_FPS) or 20.0
+    leitor = LeitorAoVivo(cap) if ao_vivo else cap
 
     gravador = None
+    pendentes: list[np.ndarray] = []   # ao vivo: primeiros quadros, até medir o FPS real
     fps_laco = deque(maxlen=30)
     ms_inferencia = deque(maxlen=30)
     todos_fps: list[float] = []
@@ -120,7 +183,7 @@ def main() -> None:
 
     while True:
         t0 = time.perf_counter()
-        ok, frame = cap.read()
+        ok, frame = leitor.read()
         if not ok:
             break
         quadros += 1
@@ -155,17 +218,31 @@ def main() -> None:
             escrever(frame, f"ATENCAO: {NOME_NA_TELA.get(alerta[0], alerta[0])} a frente", (10, h - 20), VERMELHO, 0.9)
 
         if args.salvar:
-            if gravador is None:
-                fps_video = cap.get(cv2.CAP_PROP_FPS) or 20.0
-                gravador = cv2.VideoWriter(args.salvar, cv2.VideoWriter_fourcc(*"mp4v"), fps_video, (w, h))
-            gravador.write(frame)
+            if gravador is None and not ao_vivo:
+                gravador = abrir_gravador(args.salvar, fps_fonte, w, h)
+            if gravador is not None:
+                gravador.write(frame)
+            else:
+                # ao vivo, o modelo vê menos quadros do que a câmera produz: guarda os
+                # primeiros até medir o FPS real e grava com ele, para tocar na velocidade certa
+                pendentes.append(frame.copy())
+                if len(pendentes) >= 30:
+                    gravador = abrir_gravador(args.salvar, float(np.mean(todos_fps)), w, h)
+                    for p in pendentes:
+                        gravador.write(p)
+                    pendentes.clear()
 
         if not args.sem_janela:
             cv2.imshow("Passo Firme - deteccao em tempo real", frame)
             if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
                 break
 
-    cap.release()
+    leitor.release()
+    if pendentes and todos_fps:   # sessão ao vivo curta, com menos de 30 quadros
+        h, w = pendentes[0].shape[:2]
+        gravador = abrir_gravador(args.salvar, float(np.mean(todos_fps)), w, h)
+        for p in pendentes:
+            gravador.write(p)
     if gravador is not None:
         gravador.release()
     cv2.destroyAllWindows()
@@ -173,6 +250,8 @@ def main() -> None:
     print(f"\nQuadros processados: {quadros}")
     if todos_fps:
         print(f"FPS médio do laço completo (leitura + modelo + desenho): {np.mean(todos_fps):.1f}")
+    if ao_vivo:
+        print(f"Quadros da câmera descartados para não acumular atraso: {leitor.descartados}")
     if contagem:
         print("Barreiras distintas no trajeto:", dict(contagem))
 

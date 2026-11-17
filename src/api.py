@@ -4,7 +4,7 @@ Implementa o POST /detectar do contrato do MVP: a API principal (POST /relatos) 
 este serviço quando ele está publicado. No MVP do Azure, a rota ainda devolve uma
 resposta simulada no mesmo formato. Ordem do que acontece:
   1. valida o arquivo (tamanho e se é imagem de verdade);
-  2. roda o detector treinado na imagem original;
+  2. endireita a foto pela orientação EXIF e roda o detector treinado na imagem original;
   3. anonimiza a imagem (cabeças e placas) e só essa cópia sai daqui;
   4. marca revisão humana quando o modelo não tem certeza.
 
@@ -22,6 +22,7 @@ Variáveis de ambiente (todas opcionais):
 from __future__ import annotations
 
 import base64
+import io
 import logging
 import os
 import time
@@ -31,6 +32,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from PIL import Image, ImageOps
 from ultralytics import YOLO
 
 from src.anonimizar import anonimizar
@@ -57,6 +59,21 @@ app = FastAPI(
 )
 
 
+def ler_foto(dados: bytes) -> np.ndarray | None:
+    """Abre a foto enviada já na orientação certa.
+
+    Fotos de celular costumam vir deitadas, com a rotação só anotada no EXIF; aplicamos
+    essa rotação antes de detectar. Os metadados (inclusive GPS) ficam para trás: a
+    imagem segue como pixels e a cópia devolvida é recodificada sem EXIF.
+    """
+    try:
+        with Image.open(io.BytesIO(dados)) as foto:
+            foto = ImageOps.exif_transpose(foto).convert("RGB")
+            return cv2.cvtColor(np.asarray(foto), cv2.COLOR_RGB2BGR)
+    except Exception:
+        return None
+
+
 @app.get("/saude")
 def saude() -> dict:
     return {
@@ -75,7 +92,7 @@ async def detectar(
     dados = await foto.read()
     if len(dados) > MAX_BYTES:
         raise HTTPException(status_code=413, detail=f"Foto maior que {MAX_BYTES // (1024 * 1024)} MB.")
-    img = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
+    img = ler_foto(dados)
     if img is None:
         raise HTTPException(status_code=422, detail="O arquivo enviado não é uma imagem válida.")
 

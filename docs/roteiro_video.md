@@ -1,54 +1,72 @@
 # Roteiro do vídeo de demonstração (até 5 pontos)
 
-O vídeo prova que a solução funciona: o detector rodando de verdade numa calçada, não slides. Alvo: 3 a 4 minutos. Publiquem no YouTube como **não listado** e testem o link numa janela anônima.
+O vídeo prova que a solução funciona: o detector rodando de verdade, em casa ao vivo e numa calçada real, não slides. Alvo: 3 a 4 minutos. Publiquem no YouTube como **não listado** e testem o link numa janela anônima.
 
 O modelo final (YOLO26n, 3 classes) acha bem **obstáculos**: postes, sacos e montes de lixo, lixeiras, cones, entulho. Buraco e desnível ainda falham. O trajeto da gravação deve passar por obstáculos; se um buraco for detectado, ótimo, mas não forcem.
+
+**Como o vídeo é montado.** O modelo roda num PC de mesa, que não sai de casa. Por isso a demonstração tem duas partes:
+
+1. **Ao vivo, em casa:** o celular manda a câmera para o PC pelo Wi-Fi (DroidCam) e o PC detecta em tempo real, a cerca de 12 quadros por segundo. Gravado em 16/11: robô aspirador com até 0,88 e lixeira com 0,85 a 0,87, com a zona vermelha.
+2. **Na calçada:** a caminhada é filmada com a câmera normal do celular e processada depois no PC, quadro a quadro, pelo mesmo script. Sem a marca d'água do DroidCam e com imagem melhor.
 
 | Tempo | Cena | O que aparece | Fala (resumo) |
 | --- | --- | --- | --- |
 | 0:00–0:20 | Problema | Calçada real filmada pelo grupo: lixo no caminho, poste no meio, piso quebrado | "Em São Paulo, os pedidos de conserto de calçada passaram de 49 mil em 2025 e esperam, em média, 33 dias. Quem mais sofre são idosos e pessoas com deficiência." |
 | 0:20–0:55 | Dados e treino | Roboflow com as anotações; `results.png` e a tabela de teste no Colab | "Usamos 180 fotos de calçadas de São Paulo do Mapillary, tiradas a pé, e 105 de um dataset aberto. Anotamos buraco, desnível e obstáculo e fizemos o ajuste fino de um YOLO26n. No teste, só com ruas de São Paulo, o mAP50 foi de 0,16 no geral e 0,30 em obstáculos." |
-| 0:55–2:25 | Tempo real (a parte mais importante) | Tela dividida: de um lado, quem anda com o celular; do outro, o notebook com caixas, FPS e a zona ficando vermelha | "O celular manda a câmera para o notebook, que roda o modelo a 14 quadros por segundo, só na CPU. Quando um obstáculo entra na faixa à frente, a zona fica vermelha e o aviso aparece." Parem 2 a 3 segundos diante de cada obstáculo. |
+| 0:55–1:35 | Ao vivo (tempo real) | Tela dividida: de um lado, quem anda com o celular pela casa; do outro, a gravação da tela do PC com as caixas, o FPS e a zona ficando vermelha diante da lixeira | "O celular manda a câmera para o PC, que roda o modelo a 12 quadros por segundo, só na CPU, sem placa de vídeo. Quando um obstáculo entra na faixa à frente, a zona fica vermelha e o aviso aparece." |
+| 1:35–2:25 | Na calçada (a parte mais importante) | A caminhada processada: caixas nos obstáculos da rua, contagem de barreiras no topo, zona vermelha | "Agora, uma calçada de São Paulo. Filmamos o trajeto e o mesmo modelo processou o vídeo quadro a quadro. Cada barreira ganha um número e entra na contagem do trajeto." |
 | 2:25–2:55 | Serviço do app | `/docs` do serviço: enviar a foto do saco de lixo, ver o JSON e a foto com a cabeça e as placas pixeladas | "No app, a foto do cidadão vira detecção: três obstáculos, com a confiança de cada um. Rostos e placas saem pixelados antes de a foto ser guardada, e casos sem certeza vão para revisão humana." |
-| 2:55–3:35 | Resultados e limites | Tabela São Paulo × dataset aberto; o painel `piores_casos.png` | "Um modelo igual acerta 0,89 em fotos do dataset aberto que não viu e só 0,11 nas ruas de São Paulo: dado local faz diferença. Buraco e desnível ainda não foram aprendidos com cerca de 110 exemplos. O próximo passo é anotar mais fotos de São Paulo." |
+| 2:55–3:35 | Resultados e limites | Tabela São Paulo × dataset aberto; a tabela por foto; o painel `piores_casos.png`; o cachorro deitado que passou sem alerta | "Nas fotos de teste com barreira, 81% recebem pelo menos uma detecção; as outras vão para revisão humana. Um modelo igual acerta 0,89 em fotos do dataset aberto que não viu e só 0,11 nas ruas de São Paulo: dado local faz diferença. Buraco e desnível ainda não foram aprendidos com cerca de 110 exemplos, e o modelo só reconhece o tipo de barreira que viu no treino. O próximo passo é anotar mais fotos de São Paulo." |
 | 3:35–3:50 | Fechamento | Nomes e RMs na tela | "Passo Firme: o olho que mapeia as barreiras da calçada." |
 
-## Antes de sair de casa
+## Já gravado (16/11)
 
-1. **Câmera do celular no notebook.** No DroidCam, prefiram o **cabo USB** (mais estável na rua que o Wi-Fi): no celular, *Ativar depuração USB* nas opções do desenvolvedor; no programa do PC, conectar por USB. Testem:
-   `py src\tempo_real.py --modelo modelos\best.pt --fonte 1 --rastrear`
-   Se der erro sobre o pacote `lap`, rodem `py -m pip install lap`.
-2. **Bateria:** notebook e celular carregados; levem o carregador e o cabo.
-3. **Segunda câmera:** outra pessoa filma, com o próprio celular, quem anda (para a tela dividida).
-4. **Gravar o trecho do `/docs` em casa:** `py -m uvicorn src.api:app --port 8001`, abrir `localhost:8001/docs` e gravar a tela com **Win + Alt + R** (Xbox Game Bar). Usem a foto `mapillary_sp\teste\sp_se_1542016304509302.jpg`, com `devolver_imagem` em false.
+- `ao_vivo_trecho.mp4` (27 s): robô aspirador e lixeira detectados, zona vermelha, 11,5 a 12,7 FPS na tela. Vai na cena "Ao vivo".
+- `ao_vivo_limite_cachorro.mp4` (7 s): cachorro deitado no meio da zona, sem alerta. Vai na cena "Resultados e limites".
+- `docs_trecho.mp4` (27 s): o `/docs` com zoom na resposta e a foto anonimizada no fim. Vai na cena "Serviço do app".
+- Na gravação ao vivo completa, evitem o começo e o trecho de 1:45 a 1:58 (brinquedo de personagem de desenho) e o falso alerta na quina da porta (~1:40).
 
-## Na rua
+## Parte 1: ao vivo, em casa
+
+1. **Celular e PC no mesmo Wi-Fi.** Abram o DroidCam no celular e anotem o IP que ele mostra (em 16/11 era `192.168.0.14`). Não abram o endereço no navegador nem o programa do DroidCam no PC: a versão grátis aceita uma conexão por vez.
+2. Rodem, trocando o IP se tiver mudado:
+   `py src\tempo_real.py --modelo modelos\best.pt --fonte http://192.168.0.14:4747/video --rastrear`
+   Se não abrir, troquem `/video` por `/mjpegfeed`. Se der erro sobre o pacote `lap`, rodem `py -m pip install lap`.
+3. **Gravem a janela com Win + Alt + R** (Xbox Game Bar), com a janela do Passo Firme clicada e na frente. Também dá para usar `--salvar` ao vivo: o script mede o FPS real (uns 12 quadros por segundo pela rede) e grava com ele, então o arquivo toca na velocidade certa.
+4. Uma segunda pessoa filma, com outro celular, quem anda pela casa (para a tela dividida). Passem devagar pela lixeira e por outro objeto no chão; parem 2 a 3 segundos diante de cada um.
+5. A marca "using droidcam.app" no meio da imagem é da versão grátis; pode ficar.
+
+## Parte 2: na calçada
 
 1. Com luz do dia (de preferência entre 10h e 15h), numa calçada com obstáculos.
-2. Rodem gravando o vídeo anotado:
-   `py src\tempo_real.py --modelo modelos\best.pt --fonte 1 --rastrear --salvar resultados\demo.mp4`
-3. Celular na altura do peito, apontado para a calçada à frente, um pouco para baixo. Andem devagar e parem diante de cada obstáculo.
+2. **Câmera normal do celular, na horizontal, em 1080p e 30 quadros por segundo** (nas configurações da câmera; 4K ou 60 quadros deixam o processamento bem mais lento).
+3. Celular na altura do peito, apontado para a calçada à frente, um pouco para baixo. Andem devagar e parem 2 a 3 segundos diante de cada obstáculo.
 4. Esperem os pedestres passarem; ninguém de fora do grupo com o rosto identificável.
-5. Tecla **q** para encerrar; o script imprime o FPS médio.
+5. Se der, a segunda pessoa filma quem anda, para mostrar a calçada de fora.
+6. **Em casa:** passem o vídeo para o PC (cabo USB ou Quick Share), salvem como `caminhada.mp4` na pasta do repositório e rodem:
+   `py src\tempo_real.py --modelo modelos\best.pt --fonte caminhada.mp4 --rastrear --salvar resultados\demo_rua.mp4`
+   O PC processa todos os quadros, então o `demo_rua.mp4` sai na velocidade normal, mesmo que o FPS da tela mostre uns 11 a 14. Os `.mp4` não vão para o GitHub (estão no `.gitignore`).
 
-**Plano B:** se o ao vivo falhar, filmem o trajeto com o celular e rodem o modelo sobre o arquivo:
-`py src\tempo_real.py --modelo modelos\best.pt --fonte caminhada.mp4 --rastrear --salvar resultados\demo.mp4`
-Digam no vídeo que é um vídeo gravado, processado quadro a quadro, com o FPS na tela.
+## Parte 3: o `/docs`, em casa
+
+`py -m uvicorn src.api:app --port 8001`, abrir `localhost:8001/docs` e gravar a tela com **Win + Alt + R**. Usem a foto `mapillary_sp\teste\sp_se_1542016304509302.jpg`, com `devolver_imagem` em false.
 
 ## Depois da gravação
 
-1. **Anonimizar antes de publicar** (cabeças e placas), tanto o vídeo do notebook quanto o do segundo celular:
-   `py scripts\anonimizar_video.py resultados\demo.mp4 resultados\demo_anonimo.mp4`
+1. **Anonimizar antes de publicar** (cabeças e placas) o vídeo da calçada e o do segundo celular:
+   `py scripts\anonimizar_video.py resultados\demo_rua.mp4 resultados\demo_rua_anonimo.mp4`
+   A gravação de casa só precisa passar pelo script se aparecer alguém de fora do grupo.
 2. Editar (CapCut, DaVinci Resolve ou Clipchamp, que já vem no Windows): tela dividida, legendas e os trechos do `/docs` e dos resultados.
 3. Publicar no YouTube como não listado e colar o link no README e no PDF.
 
 ## Checklist do vídeo
 
-- [ ] O detector aparece funcionando numa calçada real, com o FPS visível.
+- [ ] O detector aparece funcionando ao vivo, com o FPS visível.
+- [ ] O detector aparece numa calçada real de São Paulo.
 - [ ] Pelo menos três obstáculos diferentes detectados (ex.: poste, lixo, cone).
 - [ ] A zona de alerta fica vermelha pelo menos uma vez.
 - [ ] Uma foto passa pelo `/detectar` e volta anonimizada.
-- [ ] Os limites aparecem com honestidade (buraco e desnível; São Paulo × dataset aberto).
-- [ ] Vídeos passados pelo `anonimizar_video.py`; ninguém de fora do grupo identificável.
+- [ ] Os limites aparecem com honestidade (buraco e desnível; São Paulo × dataset aberto; objeto fora do treino).
+- [ ] Vídeos da rua passados pelo `anonimizar_video.py`; ninguém de fora do grupo identificável.
 - [ ] Legendas ligadas ou embutidas.
 - [ ] Link testado numa janela anônima.

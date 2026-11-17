@@ -9,6 +9,10 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 - **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb)
 - **Dataset no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (versão 1, `v1-sp-blindspot`)
 
+![Detecção ao vivo pela câmera do celular: a lixeira é marcada como obstáculo e a zona de caminhada fica vermelha](resultados/tempo_real_ao_vivo.gif)
+
+*Detecção ao vivo, com a câmera do celular transmitida pelo Wi-Fi para um PC sem placa de vídeo (16/11/2026).*
+
 ## Integrantes
 
 | Nome | RM |
@@ -35,13 +39,13 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 ## O papel da visão no Passo Firme
 
-O cidadão fotografa a calçada no app. A API principal manda a foto para `POST /detectar`, que devolve as barreiras (classe, confiança e caixa, os mesmos campos da tabela `deteccao` do banco do MVP) e a foto com cabeças e placas pixeladas. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado.
+O cidadão fotografa a calçada no app. A API principal manda a foto para `POST /detectar`, que devolve as barreiras (classe, confiança e caixa, os mesmos campos da tabela `deteccao` do banco do MVP) e a foto com cabeças e placas pixeladas. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. Fotos de celular são endireitadas pela orientação gravada no EXIF antes da detecção, e a foto devolvida sai sem metadados (inclusive o GPS).
 
 **Situação da integração:** este repositório entrega o serviço pronto, com Dockerfile. No MVP publicado no Azure, a rota `/detectar` ainda devolve uma resposta simulada no mesmo formato; ligar o detector real é publicar este container e apontar a API principal para ele.
 
 O mesmo modelo roda em tempo real (`src/tempo_real.py`) sobre a webcam, a câmera do celular ou um vídeo gravado: uma zona em trapézio marca o chão à frente do pedestre e fica vermelha quando uma barreira entra nela.
 
-![Tempo real pela câmera do celular: lixeira detectada com 0,87 e zona de alerta acionada](resultados/tempo_real_celular.jpg)
+![Fluxo do componente de visão: dados e treino, e uso do modelo no tempo real e no serviço /detectar](resultados/fluxo.png)
 
 ## Resultados
 
@@ -80,7 +84,7 @@ Detalhes por rodada, comparação nano × small, resolução 640 × 960, 3 × 2 
 
 ## Como reproduzir
 
-Os comandos usam `python`; no Windows, use `py`.
+Os comandos usam `python`; no Windows, use `py`. Testado com Python 3.14 no Windows (PC do grupo, AMD Ryzen 5 2600, sem placa de vídeo) e com Python 3.13 e Ultralytics 8.4.214 no Colab.
 
 ### 1. Dataset
 
@@ -114,7 +118,7 @@ python src/tempo_real.py --modelo modelos/best.pt --fonte http://IP-DO-CELULAR:4
 python src/tempo_real.py --modelo modelos/best.pt --fonte caminhada.mp4 --rastrear --salvar resultados/demo.mp4
 ```
 
-Tecla `q` encerra; o script imprime o FPS médio e a contagem de barreiras do trajeto. Antes de publicar um vídeo, pixele cabeças e placas:
+Tecla `q` encerra; o script imprime o FPS médio e a contagem de barreiras do trajeto. Em câmera ao vivo, uma thread lê a câmera o tempo todo e o modelo sempre recebe o quadro mais recente, então o atraso não cresce mesmo quando o modelo é mais lento que a câmera; com `--salvar`, o vídeo ao vivo é gravado com o FPS medido, para tocar na velocidade real. Antes de publicar um vídeo, pixele cabeças e placas:
 
 ```bash
 python scripts/anonimizar_video.py resultados/demo.mp4 resultados/demo_anonimo.mp4
@@ -190,7 +194,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 │   └── roteiro_video.md       roteiro e checklist do vídeo
 ├── dados/      README com links, licenças e créditos dos datasets
 ├── modelos/    best.pt treinado
-├── resultados/ figuras do relatório e tabela de limiares
+├── resultados/ figuras do relatório, GIF do tempo real e tabela de limiares
 ├── Dockerfile
 └── requirements.txt / requirements-api.txt
 ```
@@ -199,8 +203,9 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 
 - Dataset aberto *Sidewalk obstacles* (Blindspot), do Roboflow Universe, CC BY 4.0, com link e mapeamento das classes em `dados/README.md`.
 - Imagens de calçadas de São Paulo do [Mapillary](https://www.mapillary.com), licença CC BY-SA 4.0, capturadas a pé e já com rostos e placas borrados pela plataforma. Autor e link de cada imagem em `dados/creditos_mapillary.csv`.
-- O dataset é uma coleção: as anotações e o código do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
-- O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs; só a cópia anonimizada sai dele.
+- O dataset é uma coleção: as anotações e a documentação do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
+- O código usa a biblioteca Ultralytics, distribuída sob AGPL-3.0; o serviço e o modelo `best.pt`, treinado com ela, seguem essa licença.
+- O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs; só a cópia anonimizada sai dele, sem os metadados EXIF.
 
 ## Limitações
 

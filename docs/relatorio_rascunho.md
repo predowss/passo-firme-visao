@@ -56,6 +56,10 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 
 **OpenCV.** Biblioteca de visão usada para ler a câmera ou o vídeo, desenhar caixas, a zona de caminhada e os avisos, e pixelar as regiões sensíveis da imagem.
 
+**Rastreamento.** O Ultralytics associa as caixas de um quadro ao seguinte com o rastreador BoT-SORT, o padrão da biblioteca. Cada barreira recebe um número que se mantém enquanto ela está à vista, o que permite contar as barreiras distintas de um trajeto.
+
+**DroidCam.** Aplicativo que transforma o celular em câmera de rede: o PC lê o vídeo pelo Wi-Fi num endereço HTTP, como se fosse uma webcam.
+
 **FastAPI e Docker.** O detector roda como um serviço HTTP (`POST /detectar`) empacotado num container, no formato que a API principal do Passo Firme espera (classe, confiança e caixa de cada barreira).
 
 **Métricas.**
@@ -67,6 +71,8 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
 - *Limiar de confiança:* precisão e recall dependem dele. O Ultralytics reporta os dois no limiar que maximiza o F1; por isso medimos também em limiares fixos. Limiar mais baixo encontra mais barreiras e traz mais falsos alarmes.
 
 ## Metodologia (passo a passo)
+
+<!--FIGURA_FLUXO-->
 
 1. **Definição das classes.** A anotação usou três classes escolhidas pelo risco para o pedestre: `buraco`, `desnivel` e `obstaculo`, com critérios no guia de anotação (`docs/guia_de_anotacao.md`). Também testamos juntar buraco e desnível numa classe só, `dano_no_piso` (ver passo 7).
 2. **Dataset aberto.** Os datasets de calçada do Roboflow Universe que examinamos ou só anotam obstáculos, ou marcam a área da calçada em vez da barreira. Entrou um: o *Sidewalk obstacles* (Blindspot), do qual escolhemos a dedo 105 imagens com visão de pedestre, copiadas para o nosso projeto com *Clone Images*. O dataset tinha 24 classes, 15 delas com nomes numéricos (como `000000005669`) que eram rótulos trocados: abrindo as imagens, vimos que marcavam esferas de concreto, cones, balizadores, lixeiras e postes, mas também carros, pessoas, motos e bicicletas. As que marcam obstáculos foram reagrupadas em `obstaculo` (ferramenta *Modify Classes*) e as demais, descartadas; descartar todas às cegas teria deixado 193 obstáculos sem caixa. Essas imagens ficam só em treino e validação.
@@ -103,8 +109,8 @@ Treinar de forma customizada um detector de objetos YOLO26 que reconheça buraco
    - *Rodada 2:* a validação passou a ter só imagens de SP; as imagens abertas que estavam nela foram reservadas (16 imagens, fora do treino e da escolha) para medir a diferença. Comparamos (A) 3 classes, (C2) 2 classes, com `buraco` e `desnivel` juntos em `dano_no_piso`, e (B) YOLO26s com 3 classes. Até 100 épocas, parada após 30 sem melhora.
    - *Modelo final:* A da rodada 1 (YOLO26n, 3 classes, 640 px). No teste, os modelos das duas rodadas ficaram dentro da mesma margem para um conjunto de 31 imagens (mAP50 geral de 0,11 a 0,17; em obstáculo, 0,22 a 0,31), e juntar buraco e desnível não ajudou (0,03 em `dano_no_piso`). Por isso o critério de desempate foi o comportamento ao vivo: na câmera, o modelo A da rodada 1 detectou a mesma lixeira com confiança de 0,89 a 0,90, de forma estável, enquanto o C2 oscilava em torno de 0,26 e confundia a quina de uma estante com obstáculo.
 8. **Avaliação.** Métricas no conjunto de teste (31 imagens de SP), por classe; matriz de confusão; precisão e recall em quatro limiares de confiança (0,10, 0,25, 0,35 e 0,50), com IoU de 0,5 e de 0,3, e por foto (`notebooks/03_limiar_confianca_colab.ipynb`); desempenho separado entre SP (teste) e dataset aberto (reserva); análise dos piores casos.
-9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
-10. **Serviço para o MVP.** O serviço `POST /detectar` recebe a foto do app, roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada; a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container.
+9. **Tempo real.** O modelo roda em `src/tempo_real.py` sobre a webcam, a câmera do celular (pelo app DroidCam, na mesma rede Wi-Fi) ou um vídeo gravado. Uma zona em forma de trapézio marca o chão logo à frente; se a base de uma caixa cai dentro dela, a zona fica vermelha e aparece o aviso. Com rastreamento, cada barreira recebe um ID e o trajeto termina com a contagem por tipo. Em fonte ao vivo, uma thread lê a câmera o tempo todo e o modelo recebe sempre o quadro mais recente: como a câmera produz mais quadros do que o modelo processa na CPU, os quadros velhos são descartados em vez de formar fila, e o atraso entre o mundo e a tela não cresce com o tempo. Antes de publicar um vídeo, `scripts/anonimizar_video.py` pixela cabeças e placas quadro a quadro.
+10. **Serviço para o MVP.** O serviço `POST /detectar` recebe a foto do app, endireita a imagem pela orientação gravada no EXIF (fotos de celular costumam chegar deitadas), roda o detector na imagem original, pixela cabeças e placas (com um YOLO pré-treinado no COCO que acha pessoas e veículos, mais um detector de rostos) e devolve as detecções e a foto anonimizada, recodificada sem metadados (inclusive a localização do GPS); a foto original não é guardada nem registrada nos logs. Se nada for detectado ou a maior confiança ficar abaixo de 0,5, o relato vai para revisão humana antes de ser encaminhado. O serviço segue o contrato do MVP (classe, confiança e caixa, os campos da tabela `deteccao`) e tem Dockerfile; no MVP publicado no Azure, a rota ainda responde com dados simulados no mesmo formato, e ligar o detector real é publicar este container.
 
 ## Exemplos de resultados
 
@@ -173,14 +179,15 @@ O modelo small não superou o nano: com tão poucas imagens, o tamanho do modelo
 **Teste em ambiente real (16/11).** Com a câmera do celular transmitindo para o PC pelo Wi-Fi, o detector rodou a cerca de 12 FPS e marcou uma lixeira com confiança de 0,85 a 0,87, mantendo o mesmo ID de rastreio enquanto ela estava à frente, e um robô aspirador no chão com até 0,88, acionando a zona de alerta. Também mostrou os limites: um cachorro deitado e uma árvore no caminho não geraram alerta, porque não são tipos de barreira que o modelo aprendeu, e a quina de uma porta gerou um falso alarme.
 
 **Figuras** (cada uma com legenda no PDF):
-- Figura 1: curvas de perda e métricas por época no treino do modelo A (`resultados/A_yolo26n/results.png`).
-- Figura 2: matriz de confusão normalizada no teste; a maior parte dos erros é barreira não encontrada, e não troca entre classes (`resultados/A_teste/confusion_matrix_normalized.png`).
-- Figura 3: exemplos de acerto no teste; verde é a anotação e vermelho a previsão (`resultados/exemplos_acerto.png`).
-- Figura 4: os seis piores casos do teste (`resultados/piores_casos.png`).
-- Figura 5: tempo real com a zona de alerta acionada, pela webcam (lixeira 0,89, 14,3 FPS) e pela câmera do celular (lixeira 0,87) (`resultados/tempo_real_modeloA.jpeg` e `resultados/tempo_real_celular.jpg`).
-- Figura 6: resposta do `/detectar` desenhada na foto: três obstáculos (0,90, 0,77 e 0,70), uma cabeça e três placas pixeladas (`resultados/detectar_resposta_caixas.jpg`).
+- Figura 1: fluxo do componente, dos dados ao uso do modelo (`resultados/fluxo.png`), no início da metodologia.
+- Figura 2: curvas de perda e métricas por época no treino do modelo A (`resultados/A_yolo26n/results.png`).
+- Figura 3: matriz de confusão normalizada no teste; a maior parte dos erros é barreira não encontrada, e não troca entre classes (`resultados/A_teste/confusion_matrix_normalized.png`).
+- Figura 4: exemplos de acerto no teste; verde é a anotação e vermelho a previsão (`resultados/exemplos_acerto.png`).
+- Figura 5: os seis piores casos do teste (`resultados/piores_casos.png`).
+- Figura 6: tempo real com a zona de alerta acionada, pela webcam (lixeira 0,89, 14,3 FPS na tela) e pela câmera do celular (lixeira 0,87, 11 FPS na tela no momento da captura) (`resultados/tempo_real_modeloA.jpeg` e `resultados/tempo_real_celular.jpg`).
+- Figura 7: resposta do `/detectar` desenhada na foto: três obstáculos (0,90, 0,77 e 0,70), uma cabeça e três placas pixeladas (`resultados/detectar_resposta_caixas.jpg`).
 
-**Análise de erros.** Os erros dos seis piores casos (Figura 4) caem em cinco padrões:
+**Análise de erros.** Os erros dos seis piores casos (Figura 5) caem em cinco padrões:
 
 | # | O que o modelo fez | Causa provável | Correção proposta |
 | --- | --- | --- | --- |

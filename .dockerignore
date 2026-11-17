@@ -1,5 +1,9 @@
 .git
 .venv
+video_edicao
+mapillary_sp
+**/__pycache__
+/*.pt
 runs
 dados
 resultados

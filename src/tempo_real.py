@@ -9,7 +9,7 @@ Exemplos (no Windows, use py no lugar de python):
   python src/tempo_real.py --modelo modelos/best.pt --fonte 0
 
   # câmera do celular pelo app DroidCam, na mesma rede Wi-Fi (o app mostra o IP)
-  python src/tempo_real.py --modelo modelos/best.pt --fonte http://192.168.0.14:4747/video --rastrear
+  python src/tempo_real.py --modelo modelos/best.pt --fonte http://IP-DO-CELULAR:4747/video --rastrear
 
   # vídeo gravado andando na calçada, contando as barreiras e salvando o resultado
   python src/tempo_real.py --modelo modelos/best.pt --fonte caminhada.mp4 --rastrear --salvar resultados/demo.mp4

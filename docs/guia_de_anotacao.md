@@ -17,7 +17,6 @@ A quarta classe só entra no treino com pelo menos 80 exemplos anotados. Na vers
 
 No Roboflow, usem a ferramenta *Bounding Box* (quadrado na barra da direita, tecla **B**), não o *Smart Polygon*. Ao fechar a caixa, digitem o nome da classe exatamente como na tabela, sem acento.
 
-
 1. **Caixa justa** em volta da barreira, sem sobra de chão limpo.
 2. **Uma caixa por barreira.** Várias placas quebradas emendadas = uma caixa só; dois buracos separados por piso bom = duas caixas.
 3. **Parcialmente visível:** anote se dá para ver pelo menos um terço da barreira.
@@ -61,7 +60,7 @@ As imagens de calçadas de São Paulo vêm do Mapillary, filtradas para sequênc
 O projeto no Roboflow e o repositório são públicos, então nenhuma pessoa ou placa pode ser identificável.
 
 - O Mapillary borra rostos e placas automaticamente, mas não é perfeito. Na revisão do passo 3, apaguem qualquer imagem com rosto ou placa legível.
-- As imagens da calçada filmada ao vivo para o vídeo seguem a mesma regra: esperem o pedestre passar e não mostrem ninguém de fora do grupo com o rosto identificável.
+- Os vídeos de rua gravados pelo grupo seguem a mesma regra: na filmagem, esperem o pedestre passar; antes de publicar, passem o vídeo pelo `scripts/anonimizar_video.py`, que pixela cabeças e placas quadro a quadro.
 
 ## 5. Divisão sem vazamento
 

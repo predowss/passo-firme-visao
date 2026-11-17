@@ -4,8 +4,8 @@ Detector de barreiras em calçadas (buraco, desnível e obstáculo) treinado sob
 
 **Global Solution 2026.2 · CitizenTech · Engenharia de Software, 4º ano (4ESPY) · Applied Computer Vision**
 
-- **Vídeo de demonstração (2 min 41 s):** https://youtu.be/astTd2XMm9g
-- **Relatório (PDF):** [`docs/relatorio.pdf`](docs/relatorio.pdf) (texto-base em [`docs/relatorio_rascunho.md`](docs/relatorio_rascunho.md))
+- **Vídeo de demonstração (2 min 41 s):** https://youtu.be/astTd2XMm9g · [roteiro e transcrição](docs/roteiro_video.md)
+- **Relatório (PDF):** [`docs/relatorio.pdf`](docs/relatorio.pdf) (texto-base em [`docs/relatorio.md`](docs/relatorio.md))
 - **Notebooks com as saídas:** [treino, rodada 1](notebooks/01_treino_yolo26_colab.ipynb) · [treino, rodada 2](notebooks/02_treino_rodada2_colab.ipynb) · [precisão e recall por limiar](notebooks/03_limiar_confianca_colab.ipynb) · [melhorias sem novos dados](notebooks/04_melhorias_sem_novos_dados_colab.ipynb)
 - **Dataset no Roboflow:** https://universe.roboflow.com/pedros-workspace-md4aw/passo-firme-calcadas (versão 1, `v1-sp-blindspot`)
 
@@ -232,13 +232,15 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 │   ├── avaliar_por_regiao.py  métricas por grupo de imagens (bairros, SP × aberto)
 │   └── anonimizar_video.py    pixela cabeças e placas de um vídeo inteiro antes de publicar
 ├── docs/
-│   ├── relatorio_rascunho.md  texto-base do PDF
+│   ├── relatorio.pdf          relatório entregue (PDF)
+│   ├── relatorio.md           texto-base do PDF
 │   ├── guia_de_anotacao.md    regras de coleta, anotação e divisão
-│   └── roteiro_video.md       roteiro e checklist do vídeo
+│   └── roteiro_video.md       cenas e transcrição do vídeo
 ├── dados/      README com links, licenças e créditos dos datasets
 ├── modelos/    best.pt treinado
 ├── resultados/ figuras do relatório, GIF do tempo real, tabelas de limiares e de melhorias
 ├── Dockerfile
+├── LICENSE     AGPL-3.0
 └── requirements.txt / requirements-api.txt
 ```
 
@@ -247,7 +249,7 @@ python scripts/avaliar_por_regiao.py --modelo modelos/best.pt --dados dados/<dat
 - Dataset aberto *Sidewalk obstacles* (Blindspot), do Roboflow Universe, CC BY 4.0, com link e mapeamento das classes em `dados/README.md`.
 - Imagens de calçadas de São Paulo do [Mapillary](https://www.mapillary.com), licença CC BY-SA 4.0, capturadas a pé e já com rostos e placas borrados pela plataforma. Autor e link de cada imagem em `dados/creditos_mapillary.csv`.
 - O dataset é uma coleção: as anotações e a documentação do grupo estão sob CC BY 4.0; as imagens do Mapillary entram sem alteração e continuam sob CC BY-SA 4.0, com os créditos acima.
-- O código usa a biblioteca Ultralytics, distribuída sob AGPL-3.0; o serviço e o modelo `best.pt`, treinado com ela, seguem essa licença.
+- O código usa a biblioteca Ultralytics, distribuída sob AGPL-3.0; o serviço e o modelo `best.pt`, treinado com ela, seguem essa licença, cujo texto está em [`LICENSE`](LICENSE).
 - O serviço não guarda a foto original nem registra localização ou nome de arquivo nos logs; só a cópia anonimizada sai dele, sem os metadados EXIF.
 - Os vídeos e as imagens de rua gravados pelo grupo (Osasco) passaram pelo `scripts/anonimizar_video.py`, que pixela cabeças e placas, antes de entrar no repositório e no vídeo.
 

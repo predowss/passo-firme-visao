@@ -156,11 +156,6 @@ def perfil_velocidade(imagens: list[dict]) -> tuple[float, float, float] | None:
     return mediana, pico, parado
 
 
-def velocidade_mediana(imagens: list[dict]) -> float | None:
-    perfil = perfil_velocidade(imagens)
-    return perfil[0] if perfil else None
-
-
 def espacar(imagens: list[dict], distancia_minima: float, maximo: int) -> list[dict]:
     """Escolhe imagens da sequência com pelo menos distancia_minima metros entre si."""
     escolhidas: list[dict] = []
